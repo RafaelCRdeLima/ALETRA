@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 260" width="900" height="260" role="img" aria-label="ÁLETRA — Atlas, Levantamento e Exterior de Tangentes em Renderização Animada">
+  <g transform="translate(14,2)" stroke="#E4380D" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M28,224 L128,34 L228,224" stroke-width="21"/>
+    <path d="M74,148 L182,148" stroke-width="9"/>
+    <path d="M61.4,172 L194.6,172" stroke-width="17"/>
+    <path d="M46.6,200 L209.4,200" stroke-width="9"/>
+  </g>
+
+  <text x="296" y="130" font-family="Poppins, Futura, 'Century Gothic', 'Trebuchet MS', sans-serif"
+        font-size="84" font-weight="500" letter-spacing="9" fill="#1B1E23">ÁLETRA</text>
+
+  <text x="300" y="177" font-family="Poppins, Futura, 'Century Gothic', 'Trebuchet MS', sans-serif"
+        font-size="20" font-weight="400" letter-spacing="1.1" fill="#5A6169">Atlas, Levantamento e Exterior de Tangentes</text>
+  <text x="300" y="205" font-family="Poppins, Futura, 'Century Gothic', 'Trebuchet MS', sans-serif"
+        font-size="20" font-weight="400" letter-spacing="1.1" fill="#5A6169">em Renderização Animada</text>
+</svg>

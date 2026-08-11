@@ -1,0 +1,133 @@
+:root {
+  --brand: #e4380d;
+  --fraction: #ffc24b;
+  --ink: #f4efe9;
+  --muted: #a49a93;
+  --bg: #14100f;
+  --panel: rgba(24, 19, 18, 0.82);
+  --border: rgba(244, 239, 233, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  overflow: hidden;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+}
+
+#stage canvas {
+  display: block;
+  touch-action: none;
+}
+
+/* O numeral é o protagonista da Etapa 1: o número É a imagem. */
+#numeral {
+  position: fixed;
+  top: 2rem;
+  right: 2rem;
+  text-align: right;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Sem text-transform aqui: uppercase transforma ⟨ω, v⟩ em ⟨Ω, V⟩ e destrói a notação. */
+.numeral-label {
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.numeral-value {
+  font-size: clamp(3rem, 9vw, 5.5rem);
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.15rem;
+}
+
+.numeral-gloss {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+  max-width: 22ch;
+  margin-left: auto;
+}
+
+.numeral-gloss .whole {
+  color: var(--ink);
+}
+
+.numeral-gloss .frac {
+  color: var(--fraction);
+}
+
+#painel {
+  position: fixed;
+  left: 2rem;
+  bottom: 2rem;
+  width: min(23rem, calc(100vw - 4rem));
+  padding: 1.25rem 1.4rem 1.4rem;
+  background: var(--panel);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+#painel h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  letter-spacing: 0.22em;
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.hint {
+  margin: 0 0 1.1rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.hint b {
+  font-weight: 600;
+}
+
+.dot-point {
+  color: var(--ink);
+}
+
+.dot-tip {
+  color: var(--ink);
+}
+
+#painel label {
+  display: grid;
+  grid-template-columns: 2.6rem 1fr 3rem;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 0.6rem;
+  font-size: 0.9rem;
+}
+
+#painel output {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+input[type='range'] {
+  width: 100%;
+  accent-color: var(--brand);
+}

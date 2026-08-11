@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="ÁLETRA">
+  <g stroke="#E4380D" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- pernas do alfa: duas direções tangentes a partir do vértice -->
+    <path d="M28,224 L128,34 L228,224" stroke-width="21"/>
+    <!-- pilha da one-form atravessando as pernas; travessão central mantém a letra legível -->
+    <path d="M74,148 L182,148" stroke-width="9"/>
+    <path d="M61.4,172 L194.6,172" stroke-width="17"/>
+    <path d="M46.6,200 L209.4,200" stroke-width="9"/>
+  </g>
+</svg>

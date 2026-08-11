@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ÁLETRA — Etapa 1</title>
+    <link rel="icon" href="/assets/aletra-icone.svg" />
+    <link rel="stylesheet" href="/app/style.css" />
+  </head>
+  <body>
+    <main id="stage"></main>
+
+    <section id="numeral" aria-live="polite">
+      <div class="numeral-label">⟨ω, v⟩</div>
+      <div class="numeral-value" id="numeral-value">0.00</div>
+      <div class="numeral-gloss" id="numeral-gloss"></div>
+    </section>
+
+    <aside id="painel">
+      <h1>ÁLETRA</h1>
+      <p class="hint">
+        Arraste a <b class="dot-point">bolinha branca</b> para mover o ponto pela esfera, e a
+        <b class="dot-tip">ponta da seta</b> para mudar o vetor. Gire a cena arrastando o fundo.
+      </p>
+
+      <label>
+        <span>ω<sub>θ</sub></span>
+        <input id="omega-theta" type="range" min="-10" max="10" step="0.1" value="6" />
+        <output id="omega-theta-out">6,00</output>
+      </label>
+
+      <label>
+        <span>ω<sub>φ</sub></span>
+        <input id="omega-phi" type="range" min="-10" max="10" step="0.1" value="2.5" />
+        <output id="omega-phi-out">2,50</output>
+      </label>
+    </aside>
+
+    <script type="module" src="/app/main.ts"></script>
+  </body>
+</html>
