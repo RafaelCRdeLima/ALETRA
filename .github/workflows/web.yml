@@ -1,0 +1,95 @@
+name: Versão web
+
+# Publica o ÁLETRA como uma página no GitHub Pages: o aluno abre um link e o
+# programa roda dentro do navegador dele, sem instalar nada, sem depender do
+# sistema operacional que ele tem, e sem que nenhum cálculo saia da máquina
+# dele. Não há servidor de cálculo nenhum — a página é HTML, CSS e JavaScript
+# estáticos, e toda a geometria é computada na aba aberta.
+#
+# É a forma de distribuição que o projeto pressupõe desde o começo ("abre num
+# link, sem instalar nada", D1): num laboratório da universidade ou num notebook
+# emprestado, permissão para instalar programas nem sempre existe.
+#
+# CONFIGURAÇÃO NECESSÁRIA (uma vez, no GitHub):
+#
+#   Settings > Pages > Source = "GitHub Actions".
+#
+#   Sem isso o job `publicar` falha com "Pages não está habilitado". A opção
+#   padrão é "Deploy from a branch", que serve um branch cru pelo Jekyll e
+#   ignora o artefato construído aqui.
+#
+# O endereço publicado é https://<usuário>.github.io/<nome-do-repositório>/ —
+# ver D13, e `base: './'` no vite.config.ts, que é o que faz o subcaminho
+# funcionar.
+
+on:
+  push:
+    branches: [main]
+  # Para republicar sem precisar de um commit — por exemplo depois de mudar
+  # alguma configuração do Pages no próprio GitHub.
+  workflow_dispatch:
+
+# O que o `deploy-pages` exige para publicar. `contents: read` é o mínimo para o
+# checkout; nada aqui escreve no repositório.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Uma publicação por vez, e a mais nova ganha. `cancel-in-progress: false`
+# porque cancelar no meio de um deploy deixa o Pages num estado em que a página
+# publicada não corresponde a commit nenhum.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  construir:
+    name: construir a versão web
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # A versão do pnpm vem do campo `packageManager` do package.json, não
+      # escrita à mão aqui: uma constante duplicada neste arquivo só serviria
+      # para quebrar o build no dia em que uma das duas cópias fosse atualizada
+      # e a outra não.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # A suíte do núcleo (D8): Christoffel por diferença finita contra a forma
+      # fechada, curvatura constante onde deve ser constante, e a recusa do
+      # parser a tudo que esteja fora da lista branca. Rodam antes de publicar
+      # porque uma página no ar com o motor errado ensina geometria errada.
+      - name: testes do núcleo
+        run: pnpm test
+
+      # `pnpm build` já roda `tsc --noEmit` antes do Vite, então não há um passo
+      # de typecheck separado aqui.
+      - name: construir
+        run: pnpm build
+
+      # O artefato é o `dist/` cru. Não precisa de `.nojekyll`: o Jekyll só entra
+      # quando o Pages serve direto de um branch, e este fluxo publica um
+      # artefato já construído.
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  publicar:
+    name: publicar no GitHub Pages
+    needs: construir
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

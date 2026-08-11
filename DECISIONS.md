@@ -16,9 +16,8 @@ Respondidas explicitamente pelo usuário:
 - **Público do teste de 30 segundos da Etapa 1:** aluno de graduação típico, não um colega da área.
   A régua é legibilidade pedagógica imediata, mesmo que isso custe generalidade. Isso pesou
   diretamente na escolha da superfície da Etapa 1 (D6).
-- **Licença:** privado por enquanto, decisão de abrir código adiada. Consequência prática: nenhuma
-  dependência foi filtrada por licença nesta rodada; se o projeto abrir depois, revisitar
-  `package.json` para dependências GPL/AGPL antes de publicar.
+- **Licença:** ~~privado por enquanto, decisão de abrir código adiada~~ — **revisto: repositório
+  público.** Ver D13.
 
 Assumido sem perguntar, porque não bloqueava o plano (declarado aqui para poder ser corrigido):
 
@@ -380,3 +379,40 @@ Atravessar linhas é uma varredura 1D; contar células envolve orientação e si
 costuma se perder. A Etapa 5 precisa do seu próprio teste com alunos reais.
 
 **Revisitar quando:** Etapa 5, ao desenhar a primeira 2-form de verdade.
+
+---
+
+## D13 — Distribuição: repositório público e GitHub Pages, sem servidor
+
+**Decisão:** o repositório é público e o GitHub Pages publica a partir dele, pelo fluxo oficial de
+Actions (`upload-pages-artifact` + `deploy-pages`), a cada push em `main`. O aluno abre
+`https://rafaelcrdelima.github.io/ALETRA/` e o programa roda na aba dele. Isto revoga a premissa de
+D0 de manter o repositório privado.
+
+**Alternativas descartadas:**
+- **Repositório privado com espelho público do site**, que é o plano B escrito no
+  `site-espelho.yml` do ODEROM: o fonte fica fechado e só o `dist/` construído atravessa para um
+  segundo repositório. Descartada porque o custo é permanente e recorrente — um repositório extra,
+  um token de acesso pessoal com escrita para renovar, um segredo e uma variável para manter — em
+  troca de fechar um código cuja única razão de existir é ser lido por professores e alunos.
+- **Pages a partir de repositório privado**, que existe mas exige plano pago. Descartada porque o
+  site é público de qualquer jeito (o navegador do aluno baixa tudo), então a assinatura compraria
+  privacidade só do fonte — a mesma coisa que o espelho faz de graça, e que já foi descartada acima.
+
+**O que destravou a decisão:** D0 condicionava abrir o código a revisitar as dependências por
+licença. Feito: a árvore inteira é MIT, Apache-2.0, BSD-3-Clause, ISC e MPL-2.0, com **zero**
+ocorrências de GPL, AGPL ou SSPL. Não havia obstáculo.
+
+**Consequência técnica que já estava certa por acaso:** `base: './'` no `vite.config.ts`. Um site de
+projeto no Pages vive em `usuario.github.io/ALETRA/`, não na raiz do domínio, então caminhos
+absolutos dariam 404. Como bônus, a mesma build funciona aberta de um diretório local e embutida em
+qualquer subcaminho — que é exatamente o que o modo applet da Etapa 4 vai precisar.
+
+**Nenhum backend, em nenhuma hipótese.** Isto não é só simplicidade de infraestrutura: é a razão de
+D4 ser rigoroso. A cena viaja na URL e roda ao abrir o link, na máquina de quem abriu, sem nada
+atravessar a rede. Um interpretador de AST sobre gramática fechada é o que torna isso seguro de
+oferecer a uma turma.
+
+**Revisitar quando:** se o projeto ganhar licença explícita (hoje o `README.md` diz "ainda não
+definida"), ou se algum dia precisar de algo que host estático não faça — o que nenhuma etapa do
+`PLAN.md` prevê.
