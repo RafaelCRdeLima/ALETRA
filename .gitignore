@@ -3,3 +3,6 @@ dist/
 .vite/
 *.log
 .DS_Store
+
+# Capturas de `pnpm verificar` — verificação visual é para olhar, não para versionar.
+/etapa*.png

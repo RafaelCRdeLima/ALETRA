@@ -12,7 +12,7 @@
  */
 import { chromium } from 'playwright-core';
 
-const OUT = process.argv[2] ?? '.';
+const OUT = process.argv[2] ?? process.env.TMPDIR ?? '/tmp';
 const browser = await chromium.launch({
   executablePath: '/usr/bin/google-chrome',
   args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
@@ -36,9 +36,27 @@ for (const id of ['esfera', 'hiperbolico', 'schwarzschild']) {
   console.log(`${id}: ⟨ω,v⟩=${numeral} folhas=${folhas} células-hachuradas=${hachura}`);
 }
 
-// Métrica com erro de sintaxe proposital (critério de verificação da Etapa 2).
+// D7 ao vivo: arrastar o ponto contra o polo tem de recusar o movimento e dizer
+// que ali a carta falha — não que a geometria falha.
 await page.selectOption('#seletor', 'esfera');
-await page.waitForTimeout(300);
+await page.waitForTimeout(400);
+{
+  const box = await page.locator('.chart-panel').boundingBox();
+  const alca = page.locator('.alca-ponto');
+  const p = await alca.boundingBox();
+  await page.mouse.move(p.x + p.width / 2, p.y + p.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 2, p.y + p.height / 2, { steps: 12 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  const aviso = (await page.textContent('#aviso-singularidade'))?.trim();
+  console.log('polo da esfera:', aviso ? aviso.slice(0, 72) + '…' : '(nenhum aviso)');
+  await page.screenshot({ path: `${OUT}/etapa2-polo.png` });
+}
+
+// Métrica com erro de sintaxe proposital (critério de verificação da Etapa 2).
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForSelector('.chart-panel .folha');
 const campo = page.locator('#campos-metrica input').nth(2);
 await campo.fill('sen(theta)^2');
 await page.waitForTimeout(400);

@@ -4,7 +4,7 @@ import { degeneracyMask, probeMetric, type MetricProbe } from '../core/degenerat
 import { EXAMPLES, exampleById, type MetricExample } from '../core/examples';
 import { evaluate, form, type Form } from '../core/forms';
 import { ParseError } from '../core/expr';
-import type { ChristoffelFn, MetricFn } from '../core/metric';
+import { normSquared, type ChristoffelFn, type MetricFn } from '../core/metric';
 import { compileMetric, componentIndices } from '../core/metric-expr';
 import { read } from '../core/reading';
 import { sphereChartOf } from '../core/sphere';
@@ -19,7 +19,6 @@ import { veilTexture } from '../render/three/veil';
 const DIM = 2;
 const R = 1;
 const DISC_RADIUS = 0.5;
-const MAX_VECTOR_3D = 0.42;
 const MASK_RESOLUTION = 56;
 
 interface Scene {
@@ -119,8 +118,12 @@ stage.scene.add(pointHandle, tipHandle);
 
 let frame: TangentFrame = sphereFrame(R, scene.x);
 
+/** Enquanto false, o laço de animação não gasta frame com um canvas escondido. */
+let painelAtivo = true;
+
 function render3D(value: number): void {
   const active = embeddingMatches();
+  painelAtivo = active;
   stage.renderer.domElement.style.display = active ? '' : 'none';
   for (const object of [tangentGroup, stackGroup, vectorGroup, pointHandle, tipHandle]) {
     object.visible = active;
@@ -167,11 +170,27 @@ function render3D(value: number): void {
   tipHandle.position.copy(frame.point).add(toWorld(frame, scene.v));
 }
 
-function clampVector3D(): void {
-  const length = toWorld(frame, scene.v).length();
-  if (length > MAX_VECTOR_3D) {
-    const factor = MAX_VECTOR_3D / length;
-    for (let i = 0; i < scene.v.length; i++) scene.v[i] *= factor;
+const gScratch = new Float64Array(DIM * DIM);
+
+/**
+ * Recorta o vetor pelo comprimento **métrico**, não pelo da tela.
+ *
+ * Antes havia dois recortes brigando: um em unidades de mundo (do disco do painel
+ * 3D) e outro em fração do intervalo da carta. O primeiro vencia, e o resultado
+ * era o vetor do painel 2D limitado por um raio de disco que não significa nada
+ * na carta. |v|_g é a mesma quantidade nos dois painéis — e, como a métrica
+ * induzida é o pullback do mergulho, é exatamente o comprimento da seta em ℝ³.
+ */
+function clampVectorMetric(): void {
+  scene.metric(scene.x, gScratch);
+  const lengthSq = normSquared(gScratch, scene.v, DIM);
+  if (!Number.isFinite(lengthSq) || lengthSq <= 0) return;
+
+  const length = Math.sqrt(lengthSq);
+  const max = scene.example.maxVector;
+  if (length > max) {
+    const factor = max / length;
+    for (let i = 0; i < DIM; i++) scene.v[i] *= factor;
   }
 }
 
@@ -213,21 +232,10 @@ const chartPanel = createChartPanel({
   onPointDrag: (a, b) => movePoint(Float64Array.from([a, b])),
   onVectorDrag: (a, b) => {
     scene.v.set([a, b]);
-    clampVectorToBounds();
     update();
   },
 });
 el('carta-corpo').appendChild(chartPanel.element);
-
-/** Impede que a ponta saia da região desenhada da carta. */
-function clampVectorToBounds(): void {
-  const { min, max } = scene.example.bounds;
-  for (let i = 0; i < DIM; i++) {
-    const span = max[i]! - min[i]!;
-    const limit = span * 0.45;
-    scene.v[i] = Math.max(-limit, Math.min(limit, scene.v[i]!));
-  }
-}
 
 /**
  * Move o ponto base, mas nunca para dentro de uma região degenerada (D7): ali a
@@ -253,30 +261,40 @@ function movePoint(candidate: Float64Array): void {
 
 // ------------------------------------------------------------------ numeral
 
+/**
+ * Montado por nó, não por innerHTML. Só entram números formatados aqui, então a
+ * string seria segura hoje — mas D4 existe justamente para que este produto não
+ * tenha caminho de HTML interpolado, e deixar um aberto convida o próximo trecho
+ * a interpolar algo que veio do aluno.
+ */
 function paintNumeral(value: number): void {
   const reading = read(value);
   el('numeral-value').textContent = Number.isFinite(value) ? ptBR(reading.value) : '—';
 
-  const gloss = el('numeral-gloss');
   const folhas = Math.abs(reading.whole);
-  const resto = Math.abs(reading.fraction);
-  gloss.innerHTML =
-    folhas === 0
-      ? `<span class="frac">${ptBR(resto)}</span> de uma folha`
-      : `${folhas} folha${folhas === 1 ? '' : 's'} <span class="frac">+ ${ptBR(resto)}</span>`;
+  const resto = document.createElement('span');
+  resto.className = 'frac';
+
+  if (folhas === 0) {
+    resto.textContent = ptBR(Math.abs(reading.fraction));
+    el('numeral-gloss').replaceChildren(resto, ' de uma folha');
+    return;
+  }
+  resto.textContent = `+ ${ptBR(Math.abs(reading.fraction))}`;
+  el('numeral-gloss').replaceChildren(
+    `${folhas} folha${folhas === 1 ? '' : 's'} `,
+    resto,
+  );
 }
 
 // ------------------------------------------------------------------- update
 
 function update(): void {
-  // O recorte do vetor vem antes de ler o número: se ele acontecesse durante o
-  // desenho do 3D, a carta e o numeral mostrariam o valor de antes do recorte e
-  // os dois painéis discordariam por um frame — justamente o que esta etapa
-  // existe para não fazer.
-  if (embeddingMatches()) {
-    frame = sphereFrame(R, scene.x);
-    clampVector3D();
-  }
+  // O recorte vem antes de ler o número: se acontecesse durante o desenho do 3D,
+  // a carta e o numeral mostrariam o valor de antes do recorte e os dois painéis
+  // discordariam por um frame — justamente o que esta etapa existe para não fazer.
+  clampVectorMetric();
+  if (embeddingMatches()) frame = sphereFrame(R, scene.x);
 
   const value = evaluate(scene.omega, [scene.v]);
 
@@ -444,6 +462,7 @@ update();
 new ResizeObserver(() => update()).observe(el('carta-corpo'));
 
 stage.renderer.setAnimationLoop(() => {
+  if (!painelAtivo) return;
   stage.controls.update();
   stage.renderer.render(stage.scene, stage.camera);
 });

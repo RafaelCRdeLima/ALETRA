@@ -93,10 +93,14 @@ função de mergulho → posição em R³), não compartilhando um renderer entr
 **Alternativas descartadas:**
 - Um único pipeline WebGL para os dois painéis (2D como câmera ortográfica dentro da mesma cena
   Three.js). Descartada porque texto nítido, hit-testing de arraste, e principalmente o efeito de
-  véu com gradiente radial + máscara — que é **literalmente a técnica usada nos SVGs da marca**
-  (`aletra-marca.svg`, `<mask>`/`<radialGradient>`) — são triviais em SVG/DOM e trabalhosos em
-  WebGL. Replicar a marca com fidelidade pixel-a-pixel é mais barato reaproveitando a própria
-  técnica que ela já usa.
+  véu com gradiente radial + máscara são triviais em SVG/DOM e trabalhosos em WebGL.
+
+  **Correção (auditoria):** a redação anterior afirmava que `<mask>`/`<radialGradient>` eram
+  "literalmente a técnica usada nos SVGs da marca". Não são — `aletra-alfa-marca.svg` tem zero
+  ocorrências de ambos. A marca obtém o mesmo efeito por outro caminho: os traços da pilha variam
+  de espessura (9, 17, 9) e de comprimento, engrossando no centro e afinando nas pontas. A
+  *intenção* de design é a mesma — concentrar a leitura onde a contração acontece — e a decisão
+  técnica continua válida, mas ela se apoia nessa intenção, não numa técnica que o arquivo usa.
 - SVG também para o painel 3D. Descartada: reimplementar projeção, oclusão e iluminação à mão em
   SVG é reinventar um motor 3D; Three.js já resolve isso maduramente.
 
@@ -285,9 +289,12 @@ tensorial pequeno), extrair *essa função específica*, não uma hierarquia.
 
 **Decisão:** cada "folha" da pilha em 3D é um patch delimitado (não um plano infinito), cuja
 opacidade e extensão caem com a distância ao longo da folha a partir do ponto onde a contração está
-sendo lida (o ponto base do vetor, ou o segmento do vetor sendo arrastado) — generalizando
-diretamente o efeito de véu do logo (`radialGradient` + `mask` centrado quase exatamente no ponto
-médio do vetor, confirmado ao ler `aletra-marca.svg`). Como as folhas são paralelas e o vetor tem
+sendo lida (o ponto base do vetor, ou o segmento do vetor sendo arrastado) — generalizando o efeito
+de concentração da marca, que afina e encurta os traços da pilha conforme eles se afastam do centro
+do α. (**Correção de auditoria:** a redação anterior dizia "`radialGradient` + `mask`, confirmado ao
+ler `aletra-marca.svg`". O arquivo não usa nenhum dos dois; ver a correção em D3. A implementação em
+3D usa um alphaMap radial, que é a técnica certa para o meio — só não é a que a marca usa.) Como as
+folhas são paralelas e o vetor tem
 uma direção normal conhecida, elas são ordenadas trivialmente por distância assinada ao longo dessa
 normal — sem precisar de order-independent transparency genérico.
 

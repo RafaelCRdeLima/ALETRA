@@ -41,6 +41,17 @@ describe('gramática', () => {
     expect(evalAt('--3')).toBe(3);
     expect(evalAt('2 * -3')).toBe(-6);
   });
+
+  it('aceita notação de expoente sem engolir a constante e', () => {
+    // Quem digita métrica escreve 1e-5 por reflexo; a alternativa era um erro
+    // incompreensível. Mas `e` sozinho continua sendo a constante de Euler.
+    expect(evalAt('1e-5')).toBe(1e-5);
+    expect(evalAt('1e5')).toBe(1e5);
+    expect(evalAt('2.5e3')).toBe(2500);
+    expect(evalAt('1E2')).toBe(100);
+    expect(evalAt('2*e')).toBeCloseTo(2 * Math.E, 14);
+    expect(evalAt('e^2')).toBeCloseTo(Math.E ** 2, 14);
+  });
 });
 
 describe('mensagens de erro — legíveis, sem jargão de exceção JS (D4)', () => {

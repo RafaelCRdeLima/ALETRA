@@ -33,10 +33,25 @@ export function cone(
   return mesh;
 }
 
-/** Libera geometrias de um grupo descartável — a cena é reconstruída a cada arraste. */
+/**
+ * Libera geometrias **e materiais** de um grupo descartável — a cena é
+ * reconstruída a cada arraste.
+ *
+ * Materiais importam mesmo quando o heap não cresce: os desta cena são todos
+ * iguais, então compartilham um programa WebGL só e o coletor de lixo dá conta
+ * do resto. O que quebra essa sorte é material variando por objeto — cores por
+ * célula na Etapa 5, por exemplo —, e aí cada um vira um programa próprio que
+ * nada libera. Descartar aqui custa três linhas e remove a armadilha antes dela
+ * existir.
+ */
 export function disposeChildren(group: THREE.Object3D): void {
   for (const child of group.children) {
-    if (child instanceof THREE.Mesh) child.geometry.dispose();
+    if (child instanceof THREE.Mesh || child instanceof THREE.Line) {
+      child.geometry.dispose();
+      const material = (child as THREE.Mesh).material;
+      if (Array.isArray(material)) material.forEach((m) => m.dispose());
+      else material.dispose();
+    }
     disposeChildren(child);
   }
   group.clear();

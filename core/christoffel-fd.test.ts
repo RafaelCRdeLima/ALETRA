@@ -59,6 +59,23 @@ describe('Christoffel por diferença finita vs. forma fechada', () => {
     }
   });
 
+  it('reproduz os Christoffels do plano hiperbólico', () => {
+    // g = δ/y²  ⟹  Γ^x_xy = Γ^x_yx = -1/y,  Γ^y_xx = 1/y,  Γ^y_yy = -1/y,  resto 0.
+    const fd = christoffelOf(HYPERBOLIC_EXAMPLE);
+    const got = new Float64Array(DIM ** 3);
+
+    for (const y of [0.4, 1, 1.8, 2.6]) {
+      fd(Float64Array.from([0.3, y]), got);
+      expect(got[christoffelIndex(DIM, 0, 0, 1)]).toBeCloseTo(-1 / y, 6);
+      expect(got[christoffelIndex(DIM, 0, 1, 0)]).toBeCloseTo(-1 / y, 6);
+      expect(got[christoffelIndex(DIM, 1, 0, 0)]).toBeCloseTo(1 / y, 6);
+      expect(got[christoffelIndex(DIM, 1, 1, 1)]).toBeCloseTo(-1 / y, 6);
+      expect(got[christoffelIndex(DIM, 0, 0, 0)]).toBeCloseTo(0, 6);
+      expect(got[christoffelIndex(DIM, 1, 0, 1)]).toBeCloseTo(0, 6);
+      expect(got[christoffelIndex(DIM, 0, 1, 1)]).toBeCloseTo(0, 6);
+    }
+  });
+
   it('é simétrico nos índices de baixo em todos os casos padrão-ouro', () => {
     for (const example of [SPHERE_EXAMPLE, HYPERBOLIC_EXAMPLE, SCHWARZSCHILD_EXAMPLE]) {
       const fd = christoffelOf(example);

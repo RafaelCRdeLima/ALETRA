@@ -84,6 +84,42 @@ interface Token {
   readonly at: number;
 }
 
+/**
+ * Lê um número a partir de `start` e devolve onde ele termina (ou `start`, se o
+ * que havia ali era só um ponto solto).
+ *
+ * Aceita notação de expoente porque o público escreve `1e-5` por reflexo, e a
+ * alternativa era ele receber "sobrou 'e' no fim da expressão" — mensagem que
+ * não ajuda ninguém a consertar nada.
+ *
+ * O 'e' só é consumido como expoente se vier dígito de fato depois dele. Assim
+ * `1e-5` é um número e `2*e` continua sendo dois vezes a constante de Euler:
+ * as duas leituras coexistem sem ambiguidade.
+ */
+function readNumber(source: string, start: number): number {
+  const isDigit = (k: number): boolean =>
+    k < source.length && source[k]! >= '0' && source[k]! <= '9';
+
+  let i = start;
+  while (isDigit(i)) i++;
+  if (source[i] === '.') {
+    i++;
+    while (isDigit(i)) i++;
+  }
+  if (i === start + 1 && source[start] === '.') return start;
+  if (i === start) return start;
+
+  if (source[i] === 'e' || source[i] === 'E') {
+    let j = i + 1;
+    if (source[j] === '+' || source[j] === '-') j++;
+    if (isDigit(j)) {
+      while (isDigit(j)) j++;
+      i = j;
+    }
+  }
+  return i;
+}
+
 function tokenize(source: string): Token[] {
   const tokens: Token[] = [];
   let i = 0;
@@ -95,22 +131,11 @@ function tokenize(source: string): Token[] {
     }
     const start = i;
 
-    if (ch >= '0' && ch <= '9') {
-      while (i < source.length && /[0-9]/.test(source[i]!)) i++;
-      if (source[i] === '.') {
-        i++;
-        while (i < source.length && /[0-9]/.test(source[i]!)) i++;
-      }
+    if ((ch >= '0' && ch <= '9') || ch === '.') {
+      const end = readNumber(source, i);
+      if (end === i) throw new ParseError(`ponto solto na posição ${start + 1}`, start);
+      i = end;
       const text = source.slice(start, i);
-      tokens.push({ kind: 'num', text, value: Number(text), at: start });
-      continue;
-    }
-
-    if (ch === '.') {
-      i++;
-      while (i < source.length && /[0-9]/.test(source[i]!)) i++;
-      const text = source.slice(start, i);
-      if (text === '.') throw new ParseError(`ponto solto na posição ${start + 1}`, start);
       tokens.push({ kind: 'num', text, value: Number(text), at: start });
       continue;
     }

@@ -10,9 +10,16 @@ import { fromWorld, toWorld, type TangentFrame } from './frame';
  * superfície, para que a seta *atravesse* folhas em vez de rasar por elas. O
  * desvanecimento vem do véu (D10), não de plano infinito.
  *
- * Isto é o desenho do grau 1. O ladrilho de células da 2-form (Etapa 5) é um
- * desenho diferente — mesma leitura, "contar", mas outra geometria — e ganha o
- * seu próprio construtor quando chegar a hora. Ver D12.
+ * Isto é o desenho do grau 1 **numa superfície**. Duas restrições, ambas
+ * verificadas na entrada em vez de assumidas:
+ *
+ * - grau 1: o ladrilho de células da 2-form (Etapa 5) é outra geometria, e ganha
+ *   o seu próprio construtor quando chegar a hora;
+ * - dimensão 2: numa carta 2D os níveis de ω são retas, e o núcleo de ω é uma
+ *   direção só. Em dimensão 3 eles viram planos e o núcleo é bidimensional — o
+ *   desenho é outro, não uma generalização deste.
+ *
+ * Ver D12 para os dois pontos.
  */
 export interface StackOptions {
   readonly radius: number;
@@ -37,6 +44,14 @@ export function buildStack(
   }
 
   const dim = frame.basis.length;
+  if (dim !== 2) {
+    throw new Error(
+      `buildStack desenha níveis de 1-form numa superfície (dim 2), onde eles são ` +
+        `retas. Em dimensão ${dim} os níveis são hiperplanos e o núcleo de ω não é ` +
+        `uma direção só — é outro desenho, não este generalizado (D12).`,
+    );
+  }
+
   const c = omega.components;
   const normSq = c.reduce((acc, value) => acc + value * value, 0);
   if (normSq < 1e-12) return group; // ω = 0: nenhuma folha, e o número é 0

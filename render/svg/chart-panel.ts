@@ -87,6 +87,16 @@ export function createChartPanel(callbacks: ChartPanelCallbacks): ChartPanel {
   let drag: 'point' | 'vector' | null = null;
   let size = { width: 480, height: 360 };
 
+  /**
+   * A hachura só muda quando a métrica ou o tamanho do painel mudam — não quando
+   * o ponto se move. Redesenhá-la a cada pointermove custava centenas de nós SVG
+   * por evento e deixava Schwarzschild (que nem desenha 3D) mais lento que a
+   * esfera. Guardar a máscara desenhada por último e comparar por identidade
+   * resolve, porque cada recompilação da métrica produz um array novo.
+   */
+  let hatchedMask: Uint8Array | null = null;
+  let hatchedSize = '';
+
   function group(className: string): SVGGElement {
     const g = document.createElementNS(NS, 'g');
     g.setAttribute('class', className);
@@ -124,9 +134,11 @@ export function createChartPanel(callbacks: ChartPanelCallbacks): ChartPanel {
     if (rect.width > 0) size = { width: rect.width, height: rect.height };
     svg.setAttribute('viewBox', `0 0 ${size.width} ${size.height}`);
 
-    for (const layer of Object.values(layers)) layer.replaceChildren();
+    for (const [name, layer] of Object.entries(layers)) {
+      if (name !== 'hatch') layer.replaceChildren();
+    }
     drawHatch(state);
-    drawGrid(state);
+    drawGrid();
     drawAxes(state);
     drawStack(state);
     drawVector(state);
@@ -135,6 +147,12 @@ export function createChartPanel(callbacks: ChartPanelCallbacks): ChartPanel {
   // ------------------------------------------------------------- camadas
 
   function drawHatch(state: ChartPanelState): void {
+    const stamp = `${size.width}x${size.height}`;
+    if (state.mask === hatchedMask && stamp === hatchedSize) return;
+    hatchedMask = state.mask;
+    hatchedSize = stamp;
+    layers.hatch.replaceChildren();
+
     if (!state.mask) return;
     const box = plot();
     const n = state.maskResolution;
@@ -155,7 +173,7 @@ export function createChartPanel(callbacks: ChartPanelCallbacks): ChartPanel {
     }
   }
 
-  function drawGrid(state: ChartPanelState): void {
+  function drawGrid(): void {
     const box = plot();
     const STEPS = 8;
     for (let i = 0; i <= STEPS; i++) {

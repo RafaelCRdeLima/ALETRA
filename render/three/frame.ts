@@ -56,13 +56,23 @@ export function toWorld(
  * e isto seria uma divisão; o sistema geral está aqui porque a Etapa 2 traz
  * cartas em que a base coordenada não é ortogonal, e aí a divisão mentiria.
  */
+/**
+ * Rascunho reaproveitado entre chamadas: `fromWorld` roda 64 vezes por
+ * reconstrução da pilha, e isso acontece a cada movimento do mouse. As chamadas
+ * são estritamente sequenciais (nenhuma aninha dentro de outra), então um buffer
+ * compartilhado é seguro e evita uma alocação por chamada.
+ */
+let gramScratch = new Float64Array(0);
+
 export function fromWorld(
   frame: TangentFrame,
   world: THREE.Vector3,
   out: Float64Array,
 ): Float64Array {
   const dim = frame.basis.length;
-  const m = new Float64Array(dim * (dim + 1)); // [G | b], row-major
+  const needed = dim * (dim + 1); // [G | b], row-major
+  if (gramScratch.length !== needed) gramScratch = new Float64Array(needed);
+  const m = gramScratch;
 
   for (let i = 0; i < dim; i++) {
     for (let j = 0; j < dim; j++) {
