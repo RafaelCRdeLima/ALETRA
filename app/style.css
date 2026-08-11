@@ -38,12 +38,30 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
+/*
+ * A marca do lockup (α laranja) com o nome ao lado, seguindo a tipografia do
+ * arquivo: peso 500 e entreletra 9/84 ≈ 0,107em.
+ *
+ * O nome vai em --ink, não em laranja. O lockup pareia o α laranja com texto
+ * quase preto (#1B1E23) sobre fundo claro; sobre fundo escuro a mesma estrutura
+ * — marca colorida, nome neutro — se traduz para texto claro. Laranja nos dois
+ * apagaria a distinção que o lockup faz.
+ */
 #topo h1 {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
   margin: 0;
   font-size: 1rem;
-  letter-spacing: 0.22em;
-  color: var(--brand);
-  font-weight: 600;
+  letter-spacing: 0.107em;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+#topo h1 img {
+  display: block;
+  height: 1.75rem;
+  width: auto;
 }
 
 #seletor {

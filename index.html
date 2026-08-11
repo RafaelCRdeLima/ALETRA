@@ -3,13 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ÁLETRA — Etapa 2</title>
+    <title>ÁLETRA</title>
+    <meta
+      name="description"
+      content="Atlas, Levantamento e Exterior de Tangentes em Renderização Animada — geometria diferencial que se lê como contagem."
+    />
     <link rel="icon" href="/assets/aletra-icone.svg" />
     <link rel="stylesheet" href="/app/style.css" />
   </head>
   <body>
     <header id="topo">
-      <h1>ÁLETRA</h1>
+      <h1 title="Atlas, Levantamento e Exterior de Tangentes em Renderização Animada">
+        <!-- alt vazio de propósito: o nome vem do texto ao lado, e um alt aqui
+             faria o leitor de tela anunciar "ÁLETRA" duas vezes. -->
+        <img src="/assets/aletra-alfa-marca.svg" alt="" />
+        <span>ÁLETRA</span>
+      </h1>
       <select id="seletor" aria-label="Superfície"></select>
       <div id="numeral" aria-live="polite">
         <span class="numeral-label">⟨ω, v⟩</span>

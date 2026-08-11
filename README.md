@@ -1,4 +1,13 @@
-# ÁLETRA
+<p align="center">
+  <img src="assets/aletra-alfa-marca.svg" alt="ÁLETRA" width="112" />
+</p>
+
+<h1 align="center">ÁLETRA</h1>
+
+<p align="center">
+  <b>A</b>tlas, <b>L</b>evantamento e <b>E</b>xterior de <b>T</b>angentes em
+  <b>R</b>enderização <b>A</b>nimada
+</p>
 
 Geometria diferencial que se lê como contagem.
 
