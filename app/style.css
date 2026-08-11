@@ -4,7 +4,7 @@
   --ink: #f4efe9;
   --muted: #a49a93;
   --bg: #14100f;
-  --panel: rgba(24, 19, 18, 0.82);
+  --panel: #191413;
   --border: rgba(244, 239, 233, 0.12);
 }
 
@@ -22,112 +22,290 @@ body {
   overflow: hidden;
 }
 
-#stage {
-  position: fixed;
-  inset: 0;
+body {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100vh;
 }
 
-#stage canvas {
-  display: block;
-  touch-action: none;
+/* -------------------------------------------------------------------- topo */
+
+#topo {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  padding: 0.85rem 1.5rem;
+  border-bottom: 1px solid var(--border);
 }
 
-/* O numeral é o protagonista da Etapa 1: o número É a imagem. */
+#topo h1 {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: 0.22em;
+  color: var(--brand);
+  font-weight: 600;
+}
+
+#seletor {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
 #numeral {
-  position: fixed;
-  top: 2rem;
-  right: 2rem;
-  text-align: right;
-  pointer-events: none;
-  user-select: none;
+  margin-left: auto;
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
 }
 
-/* Sem text-transform aqui: uppercase transforma ⟨ω, v⟩ em ⟨Ω, V⟩ e destrói a notação. */
+/* Sem uppercase: ⟨ω, v⟩ viraria ⟨Ω, V⟩. */
 .numeral-label {
-  font-size: 1.05rem;
-  letter-spacing: 0.06em;
+  font-size: 1rem;
   color: var(--muted);
 }
 
 .numeral-value {
-  font-size: clamp(3rem, 9vw, 5.5rem);
+  font-size: 2.4rem;
   font-weight: 600;
   line-height: 1;
   font-variant-numeric: tabular-nums;
-  margin-top: 0.15rem;
 }
 
 .numeral-gloss {
-  margin-top: 0.5rem;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: var(--muted);
-  max-width: 22ch;
-  margin-left: auto;
-}
-
-.numeral-gloss .whole {
-  color: var(--ink);
+  min-width: 12ch;
 }
 
 .numeral-gloss .frac {
   color: var(--fraction);
 }
 
-#painel {
-  position: fixed;
-  left: 2rem;
-  bottom: 2rem;
-  width: min(23rem, calc(100vw - 4rem));
-  padding: 1.25rem 1.4rem 1.4rem;
-  background: var(--panel);
-  backdrop-filter: blur(14px);
-  border: 1px solid var(--border);
-  border-radius: 14px;
+/* ----------------------------------------------------------------- painéis */
+
+#paineis {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--border);
+  min-height: 0;
 }
 
-#painel h1 {
-  margin: 0 0 0.5rem;
-  font-size: 1.05rem;
-  letter-spacing: 0.22em;
-  color: var(--brand);
-  font-weight: 600;
+.painel {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  min-height: 0;
+  position: relative;
 }
 
-.hint {
-  margin: 0 0 1.1rem;
+.painel h2 {
+  margin: 0;
+  padding: 0.5rem 1rem 0.2rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.painel-corpo {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.painel-corpo canvas,
+.chart-panel {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.sem-mergulho {
+  position: absolute;
+  inset: 2.5rem 1.5rem auto;
+  margin: 0;
   font-size: 0.85rem;
-  line-height: 1.5;
+  line-height: 1.55;
   color: var(--muted);
 }
 
-.hint b {
-  font-weight: 600;
+/* -------------------------------------------------------------- painel SVG */
+
+.grade {
+  stroke: rgba(244, 239, 233, 0.07);
+  stroke-width: 1;
 }
 
-.dot-point {
-  color: var(--ink);
+.moldura {
+  fill: none;
+  stroke: rgba(244, 239, 233, 0.2);
+  stroke-width: 1;
 }
 
-.dot-tip {
-  color: var(--ink);
+.folha {
+  stroke: var(--brand);
+  stroke-width: 3;
+  stroke-linecap: round;
 }
 
-#painel label {
-  display: grid;
-  grid-template-columns: 2.6rem 1fr 3rem;
+.folha-zero {
+  stroke-width: 4.5;
+}
+
+.vetor-inteiro {
+  stroke: var(--ink);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.vetor-fracao {
+  stroke: var(--fraction);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.ponta {
+  fill: var(--ink);
+}
+
+.ponta-fracao {
+  fill: var(--fraction);
+}
+
+.alca {
+  fill: rgba(244, 239, 233, 0.85);
+  stroke: var(--bg);
+  stroke-width: 2;
+  cursor: grab;
+}
+
+.alca-ponta {
+  fill: rgba(244, 239, 233, 0.5);
+}
+
+text.eixo {
+  fill: var(--muted);
+  font-size: 12px;
+  text-anchor: middle;
+  font-family: inherit;
+}
+
+text.tick {
+  fill: var(--muted);
+  font-size: 10px;
+  text-anchor: middle;
+  font-family: inherit;
+}
+
+text.tick.fim {
+  text-anchor: end;
+}
+
+/* --------------------------------------------------------------- controles */
+
+#controles {
+  display: flex;
+  align-items: flex-start;
+  gap: 2rem;
+  padding: 0.9rem 1.5rem 1.1rem;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+/* Sem text-transform: uppercase transformaria "one-form ω" em "ONE-FORM Ω". */
+.bloco-titulo {
+  display: block;
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+#campos-metrica {
+  display: flex;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.campo {
+  display: flex;
   align-items: center;
-  gap: 0.7rem;
-  margin-bottom: 0.6rem;
-  font-size: 0.9rem;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  white-space: nowrap;
 }
 
-#painel output {
+.campo > span {
+  min-width: 3.4rem;
+}
+
+.campo sub {
+  font-size: 0.75em;
+}
+
+.campo input {
+  width: 8.5rem;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 0.35rem 0.5rem;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.82rem;
+}
+
+.campo input:focus {
+  outline: 1px solid var(--brand);
+  border-color: var(--brand);
+}
+
+#controles label {
+  display: grid;
+  grid-template-columns: 2.4rem 8rem 3rem;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.85rem;
+}
+
+#controles output {
   text-align: right;
   font-variant-numeric: tabular-nums;
   color: var(--muted);
+  font-size: 0.8rem;
 }
 
 input[type='range'] {
   width: 100%;
   accent-color: var(--brand);
+}
+
+.erro,
+.aviso,
+.nota {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  max-width: 46ch;
+}
+
+.erro {
+  color: var(--brand);
+}
+
+.aviso {
+  color: var(--fraction);
+}
+
+.nota {
+  color: var(--muted);
+  margin-left: auto;
+  align-self: flex-end;
 }

@@ -1,0 +1,56 @@
+/**
+ * Verificação visual das cenas — o `pnpm test` cobre `core/`, isto cobre o resto.
+ *
+ * O PLAN.md diz que `render/` e `app/` são verificados visualmente a cada etapa,
+ * porque não há sentido em testar automaticamente "isto parece certo para um
+ * aluno". Este script não tenta julgar isso: ele carrega cada exemplo, conta o
+ * que dá para contar (folhas desenhadas, células hachuradas), exercita os dois
+ * critérios de erro da Etapa 2, e deixa os PNGs para um humano olhar.
+ *
+ * Precisa do dev server no ar:  pnpm dev
+ * Uso:                          pnpm verificar [diretório-de-saída]
+ */
+import { chromium } from 'playwright-core';
+
+const OUT = process.argv[2] ?? '.';
+const browser = await chromium.launch({
+  executablePath: '/usr/bin/google-chrome',
+  args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+});
+const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+
+const errors = [];
+page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+page.on('pageerror', (e) => errors.push(String(e)));
+
+await page.goto('http://localhost:5173', { waitUntil: 'networkidle' });
+await page.waitForSelector('.chart-panel .folha');
+
+for (const id of ['esfera', 'hiperbolico', 'schwarzschild']) {
+  await page.selectOption('#seletor', id);
+  await page.waitForTimeout(900);
+  await page.screenshot({ path: `${OUT}/etapa2-${id}.png` });
+  const numeral = await page.textContent('#numeral-value');
+  const folhas = await page.locator('.chart-panel .folha').count();
+  const hachura = await page.locator('.camada-hachura rect').count();
+  console.log(`${id}: ⟨ω,v⟩=${numeral} folhas=${folhas} células-hachuradas=${hachura}`);
+}
+
+// Métrica com erro de sintaxe proposital (critério de verificação da Etapa 2).
+await page.selectOption('#seletor', 'esfera');
+await page.waitForTimeout(300);
+const campo = page.locator('#campos-metrica input').nth(2);
+await campo.fill('sen(theta)^2');
+await page.waitForTimeout(400);
+console.log('erro de sintaxe:', (await page.textContent('#erro-metrica'))?.trim());
+await page.screenshot({ path: `${OUT}/etapa2-erro.png` });
+
+// Métrica degenerada proposital.
+await campo.fill('0');
+await page.waitForTimeout(500);
+const hachuraDegenerada = await page.locator('.camada-hachura rect').count();
+console.log('g=0 → células hachuradas:', hachuraDegenerada);
+await page.screenshot({ path: `${OUT}/etapa2-degenerada.png` });
+
+console.log('erros de console:', errors.length ? errors : 'nenhum');
+await browser.close();

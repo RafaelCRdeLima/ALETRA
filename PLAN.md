@@ -94,6 +94,10 @@ superfície.
 
 ## Etapa 2 — Métrica arbitrária + carta 2D sincronizada
 
+**Estado:** construída e verificada. Os três exemplos carregam, os dois painéis sincronizam, a
+região não-riemanniana é hachurada e o erro de sintaxe é legível. `pnpm verificar` recaptura as
+telas.
+
 **Objetivo:** generalizar a Etapa 1 de "uma esfera com fórmula fechada embutida" para "qualquer
 métrica que o usuário digite", provando ao mesmo tempo que diferença finita não perde fidelidade
 visual em relação à forma fechada da Etapa 1.

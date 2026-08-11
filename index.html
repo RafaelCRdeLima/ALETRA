@@ -3,37 +3,57 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ÁLETRA — Etapa 1</title>
+    <title>ÁLETRA — Etapa 2</title>
     <link rel="icon" href="/assets/aletra-icone.svg" />
     <link rel="stylesheet" href="/app/style.css" />
   </head>
   <body>
-    <main id="stage"></main>
-
-    <section id="numeral" aria-live="polite">
-      <div class="numeral-label">⟨ω, v⟩</div>
-      <div class="numeral-value" id="numeral-value">0.00</div>
-      <div class="numeral-gloss" id="numeral-gloss"></div>
-    </section>
-
-    <aside id="painel">
+    <header id="topo">
       <h1>ÁLETRA</h1>
-      <p class="hint">
-        Arraste a <b class="dot-point">bolinha branca</b> para mover o ponto pela esfera, e a
-        <b class="dot-tip">ponta da seta</b> para mudar o vetor. Gire a cena arrastando o fundo.
-      </p>
+      <select id="seletor" aria-label="Superfície"></select>
+      <div id="numeral" aria-live="polite">
+        <span class="numeral-label">⟨ω, v⟩</span>
+        <span class="numeral-value" id="numeral-value">0,00</span>
+        <span class="numeral-gloss" id="numeral-gloss"></span>
+      </div>
+    </header>
 
-      <label>
-        <span>ω<sub>θ</sub></span>
-        <input id="omega-theta" type="range" min="-10" max="10" step="0.1" value="6" />
-        <output id="omega-theta-out">6,00</output>
-      </label>
+    <main id="paineis">
+      <section class="painel" id="painel-carta">
+        <h2>Carta</h2>
+        <div class="painel-corpo" id="carta-corpo"></div>
+      </section>
 
-      <label>
-        <span>ω<sub>φ</sub></span>
-        <input id="omega-phi" type="range" min="-10" max="10" step="0.1" value="2.5" />
-        <output id="omega-phi-out">2,50</output>
-      </label>
+      <section class="painel" id="painel-mergulho">
+        <h2>Mergulho em ℝ³</h2>
+        <div class="painel-corpo" id="stage"></div>
+        <p class="sem-mergulho" id="sem-mergulho" hidden></p>
+      </section>
+    </main>
+
+    <aside id="controles">
+      <div class="bloco">
+        <span class="bloco-titulo">Métrica</span>
+        <div id="campos-metrica"></div>
+        <p class="erro" id="erro-metrica" hidden></p>
+        <p class="aviso" id="aviso-singularidade" hidden></p>
+      </div>
+
+      <div class="bloco">
+        <span class="bloco-titulo">One-form ω</span>
+        <label>
+          <span id="rotulo-omega-0">ω₀</span>
+          <input id="omega-0" type="range" min="-10" max="10" step="0.1" value="6" />
+          <output id="omega-0-out">6,00</output>
+        </label>
+        <label>
+          <span id="rotulo-omega-1">ω₁</span>
+          <input id="omega-1" type="range" min="-10" max="10" step="0.1" value="2.5" />
+          <output id="omega-1-out">2,50</output>
+        </label>
+      </div>
+
+      <p class="nota" id="nota-exemplo"></p>
     </aside>
 
     <script type="module" src="/app/main.ts"></script>

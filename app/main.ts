@@ -1,7 +1,14 @@
 import * as THREE from 'three';
+import { christoffelFromMetric } from '../core/christoffel-fd';
+import { degeneracyMask, probeMetric, type MetricProbe } from '../core/degenerate';
+import { EXAMPLES, exampleById, type MetricExample } from '../core/examples';
 import { evaluate, form, type Form } from '../core/forms';
+import { ParseError } from '../core/expr';
+import type { ChristoffelFn, MetricFn } from '../core/metric';
+import { compileMetric, componentIndices } from '../core/metric-expr';
 import { read } from '../core/reading';
 import { sphereChartOf } from '../core/sphere';
+import { createChartPanel } from '../render/svg/chart-panel';
 import { fromWorld, sphereFrame, toWorld, type TangentFrame } from '../render/three/frame';
 import { disposeChildren } from '../render/three/primitives';
 import { createStage, PALETTE } from '../render/three/scene';
@@ -9,32 +16,87 @@ import { buildStack } from '../render/three/stack';
 import { buildVector } from '../render/three/vector';
 import { veilTexture } from '../render/three/veil';
 
+const DIM = 2;
 const R = 1;
-/** Raio do disco tangente, em unidades de mundo. A Etapa 1 é local por escopo. */
 const DISC_RADIUS = 0.5;
-const MAX_VECTOR = 0.42;
-/** Afasta o arraste dos polos, onde (θ, φ) degenera. O tratamento de D7 é da Etapa 2. */
-const THETA_EPS = 0.12;
+const MAX_VECTOR_3D = 0.42;
+const MASK_RESOLUTION = 56;
 
-interface State {
-  readonly x: Float64Array;
-  readonly v: Float64Array;
+interface Scene {
+  example: MetricExample;
+  components: string[];
+  metric: MetricFn;
+  christoffel: ChristoffelFn;
+  mask: Uint8Array | null;
+  x: Float64Array;
+  v: Float64Array;
   omega: Form;
+  parseError: string | null;
+  probe: MetricProbe | null;
 }
 
-// ω precisa ser grande o bastante para caberem várias folhas no disco: a leitura
-// da Etapa 1 é *contar*, e não há o que contar com meia folha na tela.
-const state: State = {
-  x: Float64Array.from([1.15, 0.55]),
-  v: Float64Array.from([0.28, 0.5]),
-  omega: form(2, 1, [6, 2.5]),
+const el = <T extends HTMLElement>(id: string): T => {
+  const node = document.getElementById(id);
+  if (!node) throw new Error(`#${id} não encontrado`);
+  return node as T;
 };
 
-const container = document.getElementById('stage');
-if (!container) throw new Error('#stage não encontrado');
-const stage = createStage(container, R);
-const veil = veilTexture();
+const ptBR = (n: number): string =>
+  n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+// ------------------------------------------------------------------- estado
+
+let scene: Scene = buildScene(EXAMPLES[0]!);
+
+function buildScene(example: MetricExample): Scene {
+  const components = [...example.components];
+  const metric = compileMetric({ chart: example.chart, components });
+  return {
+    example,
+    components,
+    metric,
+    christoffel: christoffelFromMetric(metric, DIM),
+    mask: degeneracyMask(metric, DIM, example.bounds, MASK_RESOLUTION),
+    x: Float64Array.from(example.initialPoint),
+    v: Float64Array.from(example.initialVector),
+    omega: form(DIM, 1, [...example.initialOmega]),
+    parseError: null,
+    probe: null,
+  };
+}
+
+/** Recompila a métrica digitada. Erro de parse não derruba a cena — congela nela. */
+function recompile(): void {
+  try {
+    const metric = compileMetric({ chart: scene.example.chart, components: scene.components });
+    scene.metric = metric;
+    scene.christoffel = christoffelFromMetric(metric, DIM);
+    scene.mask = degeneracyMask(metric, DIM, scene.example.bounds, MASK_RESOLUTION);
+    scene.parseError = null;
+  } catch (error) {
+    scene.parseError =
+      error instanceof ParseError || error instanceof Error
+        ? error.message
+        : 'não consegui ler esta métrica';
+  }
+}
+
+/**
+ * O mergulho em ℝ³ é o da esfera unitária, em forma fechada. Se o aluno editar a
+ * métrica, ele deixa de corresponder ao que está escrito — e o painel precisa
+ * dizer isso em vez de desenhar uma superfície que não é mais a da conta.
+ */
+function embeddingMatches(): boolean {
+  return (
+    scene.example.embedding === 'sphere' &&
+    scene.components.every((text, i) => text === scene.example.components[i])
+  );
+}
+
+// -------------------------------------------------------------- painel 3D
+
+const stage = createStage(el('stage'), R);
+const veil = veilTexture();
 const tangentGroup = new THREE.Group();
 const stackGroup = new THREE.Group();
 const vectorGroup = new THREE.Group();
@@ -44,8 +106,6 @@ const pointHandle = new THREE.Mesh(
   new THREE.SphereGeometry(0.045, 24, 16),
   new THREE.MeshStandardMaterial({ color: PALETTE.handle, roughness: 0.3 }),
 );
-// Deliberadamente neutro, e não amarelo: amarelo é a cor da fração (D11), e uma
-// alça de arraste com a mesma cor faria o aluno ler a bolinha como parte da conta.
 const tipHandle = new THREE.Mesh(
   new THREE.SphereGeometry(0.038, 24, 16),
   new THREE.MeshStandardMaterial({
@@ -57,20 +117,33 @@ const tipHandle = new THREE.Mesh(
 );
 stage.scene.add(pointHandle, tipHandle);
 
-let frame: TangentFrame = sphereFrame(R, state.x);
+let frame: TangentFrame = sphereFrame(R, scene.x);
 
-function rebuild(): void {
-  frame = sphereFrame(R, state.x);
-  clampVector();
+function render3D(value: number): void {
+  const active = embeddingMatches();
+  stage.renderer.domElement.style.display = active ? '' : 'none';
+  for (const object of [tangentGroup, stackGroup, vectorGroup, pointHandle, tipHandle]) {
+    object.visible = active;
+  }
 
-  const value = evaluate(state.omega, [state.v]);
+  const aviso = el<HTMLParagraphElement>('sem-mergulho');
+  aviso.hidden = active;
+  if (!active) {
+    aviso.textContent =
+      scene.example.embedding === 'sphere'
+        ? 'A métrica foi editada: o mergulho desenhado aqui é o da esfera original e já não ' +
+          'corresponde ao que está escrito. O painel de carta continua correto.'
+        : `Esta métrica não tem um mergulho em ℝ³ definido neste estágio — ${scene.example.label} ` +
+          'vive só na carta. O painel ao lado continua sendo a geometria inteira.';
+    return;
+  }
 
   disposeChildren(tangentGroup);
   tangentGroup.add(tangentDisc(frame), ...basisArrows(frame));
 
   disposeChildren(stackGroup);
   stackGroup.add(
-    buildStack(state.omega, frame, veil, {
+    buildStack(scene.omega, frame, veil, {
       radius: DISC_RADIUS,
       maxSheets: 14,
       thickness: 0.13,
@@ -81,7 +154,7 @@ function rebuild(): void {
 
   disposeChildren(vectorGroup);
   vectorGroup.add(
-    buildVector(frame, state.v, value, {
+    buildVector(frame, scene.v, value, {
       shaftRadius: 0.016,
       headLength: 0.08,
       headRadius: 0.04,
@@ -91,24 +164,20 @@ function rebuild(): void {
   );
 
   pointHandle.position.copy(frame.point);
-  tipHandle.position.copy(frame.point).add(toWorld(frame, state.v));
-
-  paintNumeral(value);
+  tipHandle.position.copy(frame.point).add(toWorld(frame, scene.v));
 }
 
-/** Mantém a ponta da seta dentro do disco onde a pilha está desenhada. */
-function clampVector(): void {
-  const length = toWorld(frame, state.v).length();
-  if (length > MAX_VECTOR) {
-    const scale = MAX_VECTOR / length;
-    for (let i = 0; i < state.v.length; i++) state.v[i] *= scale;
+function clampVector3D(): void {
+  const length = toWorld(frame, scene.v).length();
+  if (length > MAX_VECTOR_3D) {
+    const factor = MAX_VECTOR_3D / length;
+    for (let i = 0; i < scene.v.length; i++) scene.v[i] *= factor;
   }
 }
 
 function tangentDisc(f: TangentFrame): THREE.Mesh {
-  const geometry = new THREE.CircleGeometry(DISC_RADIUS, 64);
   const mesh = new THREE.Mesh(
-    geometry,
+    new THREE.CircleGeometry(DISC_RADIUS, 64),
     new THREE.MeshBasicMaterial({
       color: PALETTE.tangent,
       transparent: true,
@@ -123,7 +192,6 @@ function tangentDisc(f: TangentFrame): THREE.Mesh {
   return mesh;
 }
 
-/** e_θ e e_φ desenhados finos: a base local que o PLAN.md pede visível na Etapa 1. */
 function basisArrows(f: TangentFrame): THREE.Object3D[] {
   return f.basis.map((e) => {
     const helper = new THREE.ArrowHelper(
@@ -139,36 +207,186 @@ function basisArrows(f: TangentFrame): THREE.Object3D[] {
   });
 }
 
-const numeralValue = document.getElementById('numeral-value');
-const numeralGloss = document.getElementById('numeral-gloss');
+// -------------------------------------------------------------- painel 2D
 
-const ptBR = (n: number): string =>
-  n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const chartPanel = createChartPanel({
+  onPointDrag: (a, b) => movePoint(Float64Array.from([a, b])),
+  onVectorDrag: (a, b) => {
+    scene.v.set([a, b]);
+    clampVectorToBounds();
+    update();
+  },
+});
+el('carta-corpo').appendChild(chartPanel.element);
+
+/** Impede que a ponta saia da região desenhada da carta. */
+function clampVectorToBounds(): void {
+  const { min, max } = scene.example.bounds;
+  for (let i = 0; i < DIM; i++) {
+    const span = max[i]! - min[i]!;
+    const limit = span * 0.45;
+    scene.v[i] = Math.max(-limit, Math.min(limit, scene.v[i]!));
+  }
+}
+
+/**
+ * Move o ponto base, mas nunca para dentro de uma região degenerada (D7): ali a
+ * conta não existe, então a alça simplesmente não vai — e a interface diz por quê,
+ * distinguindo a carta que falha da geometria que diverge.
+ */
+function movePoint(candidate: Float64Array): void {
+  const { min, max } = scene.example.bounds;
+  for (let i = 0; i < DIM; i++) {
+    candidate[i] = Math.max(min[i]!, Math.min(max[i]!, candidate[i]!));
+  }
+
+  const probe = probeMetric(scene.metric, scene.christoffel, DIM, candidate);
+  if (probe.kind !== 'ok') {
+    scene.probe = probe;
+    update();
+    return;
+  }
+  scene.probe = null;
+  scene.x.set(candidate);
+  update();
+}
+
+// ------------------------------------------------------------------ numeral
 
 function paintNumeral(value: number): void {
   const reading = read(value);
-  if (numeralValue) numeralValue.textContent = Number.isFinite(value) ? ptBR(reading.value) : '—';
-  if (!numeralGloss) return;
+  el('numeral-value').textContent = Number.isFinite(value) ? ptBR(reading.value) : '—';
 
+  const gloss = el('numeral-gloss');
   const folhas = Math.abs(reading.whole);
   const resto = Math.abs(reading.fraction);
-  if (folhas === 0) {
-    numeralGloss.innerHTML = `<span class="frac">${ptBR(resto)}</span> de uma folha`;
-    return;
-  }
-  numeralGloss.innerHTML =
-    `<span class="whole">${folhas} folha${folhas === 1 ? '' : 's'}</span> ` +
-    `<span class="frac">+ ${ptBR(resto)}</span>`;
+  gloss.innerHTML =
+    folhas === 0
+      ? `<span class="frac">${ptBR(resto)}</span> de uma folha`
+      : `${folhas} folha${folhas === 1 ? '' : 's'} <span class="frac">+ ${ptBR(resto)}</span>`;
 }
 
-// ---------------------------------------------------------------- interação
+// ------------------------------------------------------------------- update
+
+function update(): void {
+  // O recorte do vetor vem antes de ler o número: se ele acontecesse durante o
+  // desenho do 3D, a carta e o numeral mostrariam o valor de antes do recorte e
+  // os dois painéis discordariam por um frame — justamente o que esta etapa
+  // existe para não fazer.
+  if (embeddingMatches()) {
+    frame = sphereFrame(R, scene.x);
+    clampVector3D();
+  }
+
+  const value = evaluate(scene.omega, [scene.v]);
+
+  chartPanel.render({
+    bounds: scene.example.bounds,
+    names: scene.example.chart.symbols,
+    omega: scene.omega.components,
+    point: scene.x,
+    vector: scene.v,
+    mask: scene.mask,
+    maskResolution: MASK_RESOLUTION,
+    value,
+    whole: read(value).whole,
+  });
+
+  render3D(value);
+  paintNumeral(value);
+
+  const erro = el<HTMLParagraphElement>('erro-metrica');
+  erro.hidden = scene.parseError === null;
+  erro.textContent = scene.parseError ?? '';
+
+  const aviso = el<HTMLParagraphElement>('aviso-singularidade');
+  aviso.hidden = scene.probe === null;
+  aviso.textContent = scene.probe?.message ?? '';
+
+  el('nota-exemplo').textContent = scene.example.note;
+}
+
+// ---------------------------------------------------------------- controles
+
+function buildSelector(): void {
+  const select = el<HTMLSelectElement>('seletor');
+  select.replaceChildren(
+    ...EXAMPLES.map((example) => {
+      const option = document.createElement('option');
+      option.value = example.id;
+      option.textContent = example.label;
+      return option;
+    }),
+  );
+  select.addEventListener('change', () => {
+    scene = buildScene(exampleById(select.value));
+    buildMetricFields();
+    syncOmegaControls();
+    update();
+  });
+}
+
+function buildMetricFields(): void {
+  const host = el('campos-metrica');
+  host.replaceChildren(
+    ...scene.components.map((value, index) => {
+      const wrapper = document.createElement('label');
+      wrapper.className = 'campo';
+
+      const [i, j] = componentIndices(DIM, index);
+      const label = document.createElement('span');
+      const sub = document.createElement('sub');
+      sub.textContent = `${scene.example.chart.symbols[i]}${scene.example.chart.symbols[j]}`;
+      label.append('g', sub, ' =');
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = value;
+      input.spellcheck = false;
+      input.addEventListener('input', () => {
+        scene.components[index] = input.value;
+        recompile();
+        update();
+      });
+
+      wrapper.append(label, input);
+      return wrapper;
+    }),
+  );
+}
+
+function syncOmegaControls(): void {
+  for (let i = 0; i < DIM; i++) {
+    const input = el<HTMLInputElement>(`omega-${i}`);
+    input.value = String(scene.omega.components[i]);
+    el(`omega-${i}-out`).textContent = ptBR(scene.omega.components[i]!);
+    const rotulo = el(`rotulo-omega-${i}`);
+    const sub = document.createElement('sub');
+    sub.textContent = scene.example.chart.symbols[i] ?? String(i);
+    rotulo.replaceChildren('ω', sub);
+  }
+}
+
+function bindOmega(): void {
+  for (let i = 0; i < DIM; i++) {
+    const input = el<HTMLInputElement>(`omega-${i}`);
+    input.addEventListener('input', () => {
+      const components = Array.from(scene.omega.components);
+      components[i] = Number(input.value);
+      scene.omega = form(DIM, 1, components);
+      el(`omega-${i}-out`).textContent = ptBR(Number(input.value));
+      update();
+    });
+  }
+}
+
+// ------------------------------------------------------- interação no 3D
 
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const tangentPlane = new THREE.Plane();
 const hit = new THREE.Vector3();
-type DragMode = 'point' | 'vector' | null;
-let drag: DragMode = null;
+let drag: 'point' | 'vector' | null = null;
 
 function setPointer(event: PointerEvent): void {
   const rect = stage.renderer.domElement.getBoundingClientRect();
@@ -178,6 +396,7 @@ function setPointer(event: PointerEvent): void {
 }
 
 stage.renderer.domElement.addEventListener('pointerdown', (event) => {
+  if (!embeddingMatches()) return;
   setPointer(event);
   if (raycaster.intersectObject(tipHandle, false).length > 0) drag = 'vector';
   else if (raycaster.intersectObject(pointHandle, false).length > 0) drag = 'point';
@@ -196,13 +415,14 @@ stage.renderer.domElement.addEventListener('pointermove', (event) => {
     const [intersection] = raycaster.intersectObject(stage.sphere, false);
     if (!intersection) return;
     const { x, y, z } = intersection.point;
-    sphereChartOf([x, y, z], state.x);
-    state.x[0] = Math.min(Math.PI - THETA_EPS, Math.max(THETA_EPS, state.x[0]!));
+    const candidate = new Float64Array(DIM);
+    sphereChartOf([x, y, z], candidate);
+    movePoint(candidate);
   } else {
     if (!raycaster.ray.intersectPlane(tangentPlane, hit)) return;
-    fromWorld(frame, hit.sub(frame.point), state.v);
+    fromWorld(frame, hit.sub(frame.point), scene.v);
+    update();
   }
-  rebuild();
 });
 
 function endDrag(event: PointerEvent): void {
@@ -214,24 +434,14 @@ function endDrag(event: PointerEvent): void {
 stage.renderer.domElement.addEventListener('pointerup', endDrag);
 stage.renderer.domElement.addEventListener('pointercancel', endDrag);
 
-function bindSlider(id: string, outId: string, index: number): void {
-  const input = document.getElementById(id) as HTMLInputElement | null;
-  const output = document.getElementById(outId);
-  if (!input) return;
-  const apply = (): void => {
-    const components = Array.from(state.omega.components);
-    components[index] = Number(input.value);
-    state.omega = form(state.omega.dim, state.omega.degree, components);
-    if (output) output.textContent = ptBR(Number(input.value));
-    rebuild();
-  };
-  input.addEventListener('input', apply);
-  apply();
-}
-bindSlider('omega-theta', 'omega-theta-out', 0);
-bindSlider('omega-phi', 'omega-phi-out', 1);
+// -------------------------------------------------------------------- boot
 
-rebuild();
+buildSelector();
+buildMetricFields();
+bindOmega();
+syncOmegaControls();
+update();
+new ResizeObserver(() => update()).observe(el('carta-corpo'));
 
 stage.renderer.setAnimationLoop(() => {
   stage.controls.update();
