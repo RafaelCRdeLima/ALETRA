@@ -163,6 +163,71 @@ const hachuraDegenerada = await page.locator('.camada-hachura rect').count();
 console.log('g=0 → células hachuradas:', hachuraDegenerada);
 await page.screenshot({ path: `${OUT}/etapa2-degenerada.png` });
 
+// Etapa 4: o critério é ida e volta *de verdade* — alterar a cena, copiar o
+// link, abrir numa aba nova sem estado nenhum, e conferir que voltou igual.
+// Recarregar a mesma aba não provaria nada: sobreviveria a qualquer cache.
+console.log('\n— cena na URL —');
+{
+  const ctx = await browser.newContext({
+    viewport: { width: 1600, height: 1000 },
+    permissions: ['clipboard-read', 'clipboard-write'],
+  });
+  const p = await ctx.newPage();
+  await p.goto('http://localhost:5173', { waitUntil: 'networkidle' });
+  await p.waitForSelector('.chart-panel .folha');
+
+  // Uma cena que ninguém teria por acidente: métrica digitada à mão, vetor
+  // alterado, morfose no meio.
+  await p.locator('#campos-metrica input').nth(2).fill('sin(theta)^2 * 0.6');
+  await p.locator('#campos-vetor input').nth(0).fill('0,17');
+  await p.locator('#bemol').fill('0.5');
+  await p.locator('#omega-0').fill('4.3');
+  await p.waitForTimeout(500);
+
+  const antes = {
+    metrica: await p.locator('#campos-metrica input').nth(2).inputValue(),
+    v0: await p.locator('#campos-vetor input').nth(0).inputValue(),
+    numeral: (await p.textContent('#numeral-value')).trim(),
+    bemolLido: (await p.textContent('#v-bemol')).trim(),
+  };
+
+  await p.locator('#copiar').click();
+  await p.waitForTimeout(400);
+  const url = await p.evaluate(() => navigator.clipboard.readText());
+  console.log(`link com ${url.length} caracteres`);
+
+  // Aba nova, contexto novo: nada de localStorage, cookie ou histórico.
+  const limpa = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
+  const q = await limpa.newPage();
+  await q.goto(url, { waitUntil: 'networkidle' });
+  await q.waitForSelector('.chart-panel .folha');
+  await q.waitForTimeout(600);
+
+  const depois = {
+    metrica: await q.locator('#campos-metrica input').nth(2).inputValue(),
+    v0: await q.locator('#campos-vetor input').nth(0).inputValue(),
+    numeral: (await q.textContent('#numeral-value')).trim(),
+    bemolLido: (await q.textContent('#v-bemol')).trim(),
+  };
+
+  for (const chave of Object.keys(antes)) {
+    const ok = antes[chave] === depois[chave];
+    console.log(`  ${chave}: ${ok ? '✓' : `✗ "${antes[chave]}" → "${depois[chave]}"`}`);
+  }
+  await q.screenshot({ path: `${OUT}/cena-restaurada.png` });
+
+  // Endereço corrompido não pode derrubar a página.
+  const r = await limpa.newPage();
+  await r.goto('http://localhost:5173/?cena=lixo!!!', { waitUntil: 'networkidle' });
+  await r.waitForTimeout(800);
+  const aviso = (await r.textContent('#erro-metrica'))?.trim();
+  const desenhou = (await r.locator('.chart-panel .folha').count()) > 0;
+  console.log(`  cena corrompida: desenhou mesmo assim=${desenhou}, aviso="${aviso}"`);
+
+  await ctx.close();
+  await limpa.close();
+}
+
 // Layout em telas reais. O 1366×768 é o que boa parte da turma tem, e é onde o
 // cromo antes comia um terço da cena. `sobra` mede a altura que os painéis
 // recebem: se ela desabar, o desenho encolheu para o controle caber.

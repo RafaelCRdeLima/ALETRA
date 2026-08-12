@@ -174,6 +174,12 @@ salvar/URL, editor, embedding.
 
 ## Etapa 4 — Formato de cena, URL compartilhável, edição mínima
 
+**Estado:** construída. Cena serializada na URL (496–581 caracteres nos quatro exemplos, medido),
+botão de copiar link, carregamento com validação estrita, e formato de texto editável à mão. As
+duas decisões que esta etapa devia tomar estão registradas: D14 (sem compressão, por medição) e
+D15 (sem camada reativa, que era a reavaliação agendada por D2). O modo embedding chegou antes, na
+preparação do teste com alunos.
+
 **Objetivo:** transformar as três cenas concretas construídas até aqui na infraestrutura de
 autoria e compartilhamento que o produto promete — só agora, porque só agora se sabe o que uma
 cena realmente precisa guardar (o aviso do usuário contra arquitetura antecipada, D9, se aplica

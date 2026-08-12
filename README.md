@@ -32,6 +32,12 @@ toda a geometria é calculada na aba aberta, na máquina de quem abriu.
   uma mensagem que distingue singularidade de coordenada (o horizonte em r=2M,
   os polos da esfera) de singularidade de curvatura real (r=0).
 
+## Compartilhar uma cena
+
+O botão **copiar link** guarda a cena inteira no endereço — métrica digitada, ponto, vetor, ω e a
+morfose de ♭. Quem abrir o link vê exatamente o que você via. Nada é enviado a servidor nenhum: o
+estado viaja no próprio endereço, e as cenas do escopo cabem em menos de 600 caracteres.
+
 ## Modo cena-limpa
 
 Acrescente `?limpo=1` ao endereço e todo o cromo desaparece: fica a superfície,

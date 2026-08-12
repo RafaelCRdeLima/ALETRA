@@ -416,3 +416,69 @@ oferecer a uma turma.
 **Revisitar quando:** se o projeto ganhar licença explícita (hoje o `README.md` diz "ainda não
 definida"), ou se algum dia precisar de algo que host estático não faça — o que nenhuma etapa do
 `PLAN.md` prevê.
+
+---
+
+## D14 — Formato de cena: JSON legível, e URL sem compressão
+
+**Decisão:** a cena é um objeto JSON com campos em português, guardado em texto indentado
+(versionável em git, editável à mão) e transportado na URL como JSON minificado → UTF-8 →
+base64url. **Sem compressão.**
+
+**Alternativa descartada:** o `deflate` que a própria Etapa 4 sugeria no `PLAN.md`, via
+`CompressionStream`.
+
+**Justificativa — medida, não estimada.** O `PLAN.md` mandava medir o comprimento das URLs das
+cenas de exemplo antes de decidir. Medido:
+
+| Cena | URL completa |
+|---|---|
+| Esfera | 548 caracteres |
+| Plano euclidiano | 530 |
+| Plano hiperbólico | 496 |
+| Schwarzschild | 581 |
+
+O limiar de risco conservador é ~2 KB, e o comum é 8 KB. As cenas usam menos de 30% do orçamento
+mais apertado. `CompressionStream` custaria assincronia no caminho de abertura da página — o
+carregamento da cena deixaria de ser síncrono no boot — para economizar bytes que não faltam. A
+compressão volta à mesa se o campo `nota` crescer para texto longo de aula; hoje ele é limitado a
+400 caracteres justamente para o orçamento continuar folgado.
+
+**A validação é fronteira de segurança, não higiene.** A cena chega de uma URL que qualquer pessoa
+monta e manda para um aluno. As expressões de métrica já são seguras por construção (D4), mas a
+estrutura é validada campo a campo, com recusa explícita: versão desconhecida, array de tamanho
+errado, número não finito, nome de coordenada que o parser não aceitaria, limites invertidos,
+`bemol` fora de [0,1], texto acima do teto. Campos extras são descartados em vez de propagados.
+Uma cena corrompida mostra a mensagem e mantém a cena de origem no ar — um link truncado no
+WhatsApp precisa dar *alguma coisa*, não tela branca.
+
+**Guarda a expressão digitada, nunca a AST compilada:** é o que o autor escreveu, é o que ele
+reconhece ao reabrir, e é o que sobrevive a uma mudança futura no parser.
+
+**Revisitar quando:** o campo de texto explicativo virar conteúdo de aula de verdade, ou uma cena
+passar a guardar muitos objetos (a Etapa 5 traz 2-forms). Aí medir de novo — a régua é a medição,
+não o palpite.
+
+---
+
+## D15 — Sem camada reativa: a reavaliação que D2 agendou para a Etapa 4
+
+**Decisão:** seguir com DOM/SVG manipulados diretamente. Nenhum framework reativo.
+
+**O que D2 mandava avaliar:** se o editor de cena e o painel de parâmetros justificariam uma camada
+reativa pequena (Solid.js foi o exemplo citado). Chegou a hora; a resposta é não.
+
+**Justificativa:** o painel de parâmetros existe e é pequeno — três campos de métrica, dois de
+vetor, dois sliders de ω, um da morfose, um seletor e um botão. O `app/` inteiro é uma função
+`update()` que redesenha tudo a partir do estado, e isso é suficiente porque não há árvore de
+componentes para reconciliar nem estado derivado espalhado. O custo medido do redesenho completo é
+de 17 a 30 ms por evento de arraste, dominado por WebGL e SVG, não por sincronização de DOM — uma
+camada reativa não tocaria no gargalo.
+
+Introduzir uma agora seria pagar build, dependência e modelo mental novo para resolver um problema
+que não apareceu. É o mesmo erro que D9 alerta em outra dimensão: estrutura antes de saber o que
+ela precisa suportar.
+
+**Revisitar quando:** se o painel crescer a ponto de ter dependências entre campos (um controle que
+habilita outro, validação cruzada), ou se `update()` virar gargalo mensurado — e não antes de
+medir.

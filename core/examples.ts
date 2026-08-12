@@ -9,6 +9,7 @@
  */
 import { chart, type Chart } from './chart';
 import type { ChartBounds } from './degenerate';
+import { VERSAO_ATUAL, type SceneDoc } from './scene';
 import { SPHERE_CHART } from './sphere';
 
 export interface MetricExample {
@@ -127,4 +128,61 @@ export const EXAMPLES: readonly MetricExample[] = [
 
 export function exampleById(id: string): MetricExample {
   return EXAMPLES.find((example) => example.id === id) ?? SPHERE_EXAMPLE;
+}
+
+// ------------------------------------------------- ponte com o formato de cena
+
+/** Estado editável que uma cena carrega junto com a métrica. */
+export interface SceneState {
+  readonly ponto: readonly number[];
+  readonly vetor: readonly number[];
+  readonly omega: readonly number[];
+  readonly bemol: number;
+  /** A métrica como o autor digitou, que pode já ter divergido do exemplo. */
+  readonly metrica: readonly string[];
+}
+
+export function exampleToScene(example: MetricExample, estado: SceneState): SceneDoc {
+  return {
+    versao: VERSAO_ATUAL,
+    carta: [...example.chart.names],
+    metrica: [...estado.metrica],
+    limites: { min: [...example.bounds.min], max: [...example.bounds.max] },
+    ponto: [...estado.ponto],
+    vetor: [...estado.vetor],
+    omega: [...estado.omega],
+    maxVetor: example.maxVector,
+    bemol: estado.bemol,
+    // O arquivo de cena é lido e escrito por gente, então fala português; o
+    // código interno segue em inglês. A tradução mora aqui, nas duas pontes, e
+    // em nenhum outro lugar.
+    mergulho: example.embedding === 'sphere' ? 'esfera' : null,
+    rotulo: example.label,
+    nota: example.note,
+  };
+}
+
+/**
+ * Uma cena carregada vira um exemplo em memória, e daí o resto do produto não
+ * precisa saber de onde ela veio: cena de URL e exemplo embutido entram pelo
+ * mesmo caminho.
+ *
+ * `closedCurvature` é NaN porque uma cena qualquer não tem forma fechada
+ * conhecida. O campo só é lido pelos testes de D8, nunca em tempo de execução.
+ */
+export function sceneToExample(cena: SceneDoc): MetricExample {
+  return {
+    id: 'cena',
+    label: cena.rotulo || 'Cena carregada',
+    chart: chart(cena.carta),
+    components: [...cena.metrica],
+    bounds: { min: [...cena.limites.min], max: [...cena.limites.max] },
+    initialPoint: [...cena.ponto],
+    initialVector: [...cena.vetor],
+    initialOmega: [...cena.omega],
+    maxVector: cena.maxVetor,
+    closedCurvature: () => Number.NaN,
+    embedding: cena.mergulho === 'esfera' ? 'sphere' : null,
+    note: cena.nota,
+  };
 }

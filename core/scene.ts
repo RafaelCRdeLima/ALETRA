@@ -1,0 +1,188 @@
+/**
+ * O formato de cena: o que uma cena precisa guardar para ser reaberta igual.
+ *
+ * Chega na Etapa 4 e não antes de propósito. Só depois de construir três cenas
+ * concretas dá para saber o que elas de fato guardam — inventar o formato na
+ * Etapa 1 teria produzido campos para coisas que nunca existiram e nenhum campo
+ * para a morfose de ♭, que só apareceu na Etapa 3.
+ *
+ * Guarda a **expressão digitada** da métrica, nunca a AST compilada: é o que o
+ * autor escreveu, é o que ele reconhece ao reabrir, e é o que sobrevive a uma
+ * mudança futura no parser.
+ *
+ * ## Sobre confiança
+ *
+ * Uma cena vem de uma URL que qualquer pessoa pode montar e mandar para um
+ * aluno. Tudo aqui é entrada não confiável. As expressões de métrica já são
+ * seguras por construção (D4: gramática fechada, AST interpretada, nunca
+ * `eval`), mas a *estrutura* precisa ser validada com a mesma seriedade — daí
+ * `sceneFromUnknown` recusar qualquer coisa fora do formato em vez de confiar
+ * no formato e quebrar depois, no meio do desenho.
+ */
+
+export interface SceneDoc {
+  readonly versao: 1;
+  /** Nomes das coordenadas — o que o parser aceita nas expressões. */
+  readonly carta: readonly string[];
+  /** Triângulo superior da métrica, como expressões: [g₀₀, g₀₁, g₁₁]. */
+  readonly metrica: readonly string[];
+  readonly limites: { readonly min: readonly number[]; readonly max: readonly number[] };
+  readonly ponto: readonly number[];
+  readonly vetor: readonly number[];
+  readonly omega: readonly number[];
+  readonly maxVetor: number;
+  /** Morfose v ⇄ v♭ da Etapa 3, em [0, 1]. */
+  readonly bemol: number;
+  /** Só a esfera tem mergulho em ℝ³ hoje; qualquer outra coisa vive na carta. */
+  readonly mergulho: 'esfera' | null;
+  readonly rotulo: string;
+  readonly nota: string;
+}
+
+export const VERSAO_ATUAL = 1;
+
+export class SceneError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SceneError';
+  }
+}
+
+// ------------------------------------------------------------- validação
+
+function exigirObjeto(valor: unknown, onde: string): Record<string, unknown> {
+  if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) {
+    throw new SceneError(`${onde}: esperava um objeto`);
+  }
+  return valor as Record<string, unknown>;
+}
+
+function exigirTexto(valor: unknown, onde: string, maximo = 400): string {
+  if (typeof valor !== 'string') throw new SceneError(`${onde}: esperava texto`);
+  if (valor.length > maximo) {
+    throw new SceneError(`${onde}: texto longo demais (${valor.length} > ${maximo})`);
+  }
+  return valor;
+}
+
+function exigirNumero(valor: unknown, onde: string): number {
+  if (typeof valor !== 'number' || !Number.isFinite(valor)) {
+    throw new SceneError(`${onde}: esperava um número finito`);
+  }
+  return valor;
+}
+
+function exigirNumeros(valor: unknown, onde: string, quantos: number): number[] {
+  if (!Array.isArray(valor) || valor.length !== quantos) {
+    throw new SceneError(`${onde}: esperava ${quantos} números`);
+  }
+  return valor.map((v, i) => exigirNumero(v, `${onde}[${i}]`));
+}
+
+function exigirTextos(valor: unknown, onde: string, quantos: number): string[] {
+  if (!Array.isArray(valor) || valor.length !== quantos) {
+    throw new SceneError(`${onde}: esperava ${quantos} itens`);
+  }
+  return valor.map((v, i) => exigirTexto(v, `${onde}[${i}]`));
+}
+
+/**
+ * Valida uma estrutura vinda de JSON e devolve uma cena, ou explica o que está
+ * errado. Nenhum campo é assumido; nenhum extra é preservado.
+ */
+export function sceneFromUnknown(bruto: unknown): SceneDoc {
+  const o = exigirObjeto(bruto, 'cena');
+
+  const versao = exigirNumero(o['versao'], 'cena.versao');
+  if (versao !== VERSAO_ATUAL) {
+    throw new SceneError(
+      `esta cena é da versão ${versao} e este ÁLETRA lê a versão ${VERSAO_ATUAL}`,
+    );
+  }
+
+  const carta = exigirTextos(o['carta'], 'cena.carta', 2);
+  for (const nome of carta) {
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(nome)) {
+      throw new SceneError(`cena.carta: "${nome}" não é um nome de coordenada válido`);
+    }
+  }
+
+  const limites = exigirObjeto(o['limites'], 'cena.limites');
+  const min = exigirNumeros(limites['min'], 'cena.limites.min', 2);
+  const max = exigirNumeros(limites['max'], 'cena.limites.max', 2);
+  for (let i = 0; i < 2; i++) {
+    if (!(max[i]! > min[i]!)) {
+      throw new SceneError(`cena.limites: o máximo de ${carta[i]} tem de ser maior que o mínimo`);
+    }
+  }
+
+  const maxVetor = exigirNumero(o['maxVetor'], 'cena.maxVetor');
+  if (maxVetor <= 0) throw new SceneError('cena.maxVetor: tem de ser positivo');
+
+  const bemol = exigirNumero(o['bemol'], 'cena.bemol');
+  if (bemol < 0 || bemol > 1) throw new SceneError('cena.bemol: tem de estar entre 0 e 1');
+
+  const mergulho = o['mergulho'];
+  if (mergulho !== null && mergulho !== 'esfera') {
+    throw new SceneError('cena.mergulho: só "esfera" ou nulo são conhecidos');
+  }
+
+  return {
+    versao: VERSAO_ATUAL,
+    carta,
+    metrica: exigirTextos(o['metrica'], 'cena.metrica', 3),
+    limites: { min, max },
+    ponto: exigirNumeros(o['ponto'], 'cena.ponto', 2),
+    vetor: exigirNumeros(o['vetor'], 'cena.vetor', 2),
+    omega: exigirNumeros(o['omega'], 'cena.omega', 2),
+    maxVetor,
+    bemol,
+    mergulho,
+    rotulo: exigirTexto(o['rotulo'] ?? '', 'cena.rotulo', 120),
+    nota: exigirTexto(o['nota'] ?? '', 'cena.nota', 400),
+  };
+}
+
+// ------------------------------------------------------------ texto e URL
+
+/** O formato legível: JSON indentado, versionável em git porque é texto. */
+export function sceneToText(cena: SceneDoc): string {
+  return `${JSON.stringify(cena, null, 2)}\n`;
+}
+
+export function sceneFromText(texto: string): SceneDoc {
+  let bruto: unknown;
+  try {
+    bruto = JSON.parse(texto);
+  } catch {
+    throw new SceneError('isto não é um arquivo de cena válido (JSON malformado)');
+  }
+  return sceneFromUnknown(bruto);
+}
+
+/**
+ * Codificação para a URL: JSON minificado → UTF-8 → base64url.
+ *
+ * Sem compressão, e isto é decisão medida e não esquecimento — ver D14. As
+ * cenas do escopo cabem em poucas centenas de caracteres, muito abaixo de
+ * qualquer limite prático de URL, e `CompressionStream` custaria assincronia
+ * no caminho de abertura da página para economizar bytes que não faltam.
+ */
+export function sceneToParam(cena: SceneDoc): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(cena));
+  let binario = '';
+  for (const b of bytes) binario += String.fromCharCode(b);
+  return btoa(binario).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+export function sceneFromParam(param: string): SceneDoc {
+  let binario: string;
+  try {
+    const base64 = param.replace(/-/g, '+').replace(/_/g, '/');
+    binario = atob(base64);
+  } catch {
+    throw new SceneError('o endereço da cena está truncado ou corrompido');
+  }
+  const bytes = Uint8Array.from(binario, (c) => c.charCodeAt(0));
+  return sceneFromText(new TextDecoder().decode(bytes));
+}

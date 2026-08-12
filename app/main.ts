@@ -1,7 +1,14 @@
 import * as THREE from 'three';
 import { christoffelFromMetric } from '../core/christoffel-fd';
 import { degeneracyMask, probeMetric, type MetricProbe } from '../core/degenerate';
-import { EXAMPLES, exampleById, type MetricExample } from '../core/examples';
+import {
+  EXAMPLES,
+  exampleById,
+  exampleToScene,
+  sceneToExample,
+  type MetricExample,
+} from '../core/examples';
+import { sceneFromParam, sceneToParam, type SceneDoc } from '../core/scene';
 import { evaluate, form, type Form } from '../core/forms';
 import { flatForm } from '../core/musical';
 import { ParseError } from '../core/expr';
@@ -63,7 +70,28 @@ const MODO_LIMPO = params.get('limpo') === '1';
  */
 let bemol = 0;
 
-let scene: Scene = buildScene(exampleById(params.get('exemplo') ?? ''));
+/**
+ * Uma cena vinda do endereço tem precedência sobre `?exemplo=`, e um endereço
+ * quebrado não pode derrubar a página: a cena de origem continua sendo aberta e
+ * a mensagem explica o que houve. Um aluno que recebeu um link truncado no
+ * WhatsApp precisa ver *alguma coisa*, não uma tela branca.
+ */
+let cenaInicial: SceneDoc | null = null;
+let erroCena: string | null = null;
+const paramCena = params.get('cena');
+if (paramCena !== null) {
+  try {
+    cenaInicial = sceneFromParam(paramCena);
+    bemol = cenaInicial.bemol;
+  } catch (error) {
+    erroCena = error instanceof Error ? error.message : 'não consegui ler a cena do endereço';
+  }
+}
+
+let scene: Scene = buildScene(
+  cenaInicial ? sceneToExample(cenaInicial) : exampleById(params.get('exemplo') ?? ''),
+);
+scene.parseError = erroCena;
 
 function buildScene(example: MetricExample): Scene {
   const components = [...example.components];
@@ -434,10 +462,15 @@ function update(): void {
 
 // ---------------------------------------------------------------- controles
 
+/** A cena que veio do endereço, se veio — para dar para voltar a ela no seletor. */
+const exemploCarregado = cenaInicial ? sceneToExample(cenaInicial) : null;
+
 function buildSelector(): void {
   const select = el<HTMLSelectElement>('seletor');
+  const opcoes = exemploCarregado ? [exemploCarregado, ...EXAMPLES] : [...EXAMPLES];
+
   select.replaceChildren(
-    ...EXAMPLES.map((example) => {
+    ...opcoes.map((example) => {
       const option = document.createElement('option');
       option.value = example.id;
       option.textContent = example.label;
@@ -445,11 +478,55 @@ function buildSelector(): void {
     }),
   );
   select.addEventListener('change', () => {
-    scene = buildScene(exampleById(select.value));
+    const escolhido =
+      exemploCarregado && select.value === exemploCarregado.id
+        ? exemploCarregado
+        : exampleById(select.value);
+    scene = buildScene(escolhido);
     buildMetricFields();
     buildVectorFields();
     syncOmegaControls();
     update();
+  });
+}
+
+/** A cena como está agora — inclusive a métrica que o aluno tenha editado. */
+function cenaAtual(): SceneDoc {
+  return exampleToScene(scene.example, {
+    ponto: Array.from(scene.x),
+    vetor: Array.from(scene.v),
+    omega: Array.from(scene.omega.components),
+    bemol,
+    metrica: scene.components,
+  });
+}
+
+function bindCopiar(): void {
+  const botao = el<HTMLButtonElement>('copiar');
+  botao.addEventListener('click', () => {
+    const url = new URL(window.location.href);
+    url.search = '';
+    url.searchParams.set('cena', sceneToParam(cenaAtual()));
+    if (MODO_LIMPO) url.searchParams.set('limpo', '1');
+    const endereco = url.toString();
+
+    const avisar = (texto: string): void => {
+      botao.textContent = texto;
+      window.setTimeout(() => {
+        botao.textContent = 'copiar link';
+      }, 2200);
+    };
+
+    // A área de transferência pode ser negada (permissão, contexto inseguro).
+    // Nesse caso o endereço vai para a barra, de onde dá para copiar à mão —
+    // nunca um beco sem saída.
+    navigator.clipboard?.writeText(endereco).then(
+      () => avisar('copiado!'),
+      () => {
+        window.history.replaceState(null, '', endereco);
+        avisar('está na barra ↑');
+      },
+    );
   });
 }
 
@@ -626,7 +703,9 @@ stage.renderer.domElement.addEventListener('pointercancel', endDrag);
 
 document.body.classList.toggle('limpo', MODO_LIMPO);
 buildSelector();
+bindCopiar();
 el<HTMLSelectElement>('seletor').value = scene.example.id;
+el<HTMLInputElement>('bemol').value = String(bemol);
 buildMetricFields();
 buildVectorFields();
 bindOmega();

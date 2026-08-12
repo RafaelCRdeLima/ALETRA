@@ -74,6 +74,27 @@ body {
   font-size: 0.85rem;
 }
 
+#copiar {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.4rem 0.7rem;
+  font-family: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  min-width: 8.5rem;
+}
+
+#copiar:hover {
+  color: var(--ink);
+  border-color: var(--brand);
+}
+
+body.limpo #copiar {
+  display: none;
+}
+
 #numeral {
   margin-left: auto;
   display: flex;
