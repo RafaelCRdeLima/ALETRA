@@ -42,7 +42,7 @@ export interface SceneDoc {
    */
   readonly laco: readonly number[] | null;
   /** Qual leitura a cena abre mostrando: folhas, células, circulação ou vão. */
-  readonly modo: 'uma' | 'duas' | 'derivada' | 'colchete' | 'holonomia';
+  readonly modo: 'uma' | 'duas' | 'derivada' | 'colchete' | 'holonomia' | 'geodesica';
   readonly maxVetor: number;
   /** Morfose v ⇄ v♭ da Etapa 3, em [0, 1]. */
   readonly bemol: number;
@@ -72,7 +72,14 @@ export interface SceneDoc {
 export const VERSAO_ATUAL = 1;
 
 /** As leituras que o produto sabe abrir. Cresce a cada etapa que traz uma nova. */
-const MODOS_CONHECIDOS = ['uma', 'duas', 'derivada', 'colchete', 'holonomia'] as const;
+const MODOS_CONHECIDOS = [
+  'uma',
+  'duas',
+  'derivada',
+  'colchete',
+  'holonomia',
+  'geodesica',
+] as const;
 type ModoCena = (typeof MODOS_CONHECIDOS)[number];
 
 const ehModo = (valor: unknown): valor is ModoCena =>

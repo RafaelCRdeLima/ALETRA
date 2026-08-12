@@ -353,6 +353,22 @@ integrador já existe internamente desde a Etapa 7, mas geodésica como cena ded
 
 ## Etapa 9 — Geodésicas e desvio geodésico
 
+**Estado:** construída, e com ela **os cinco testes de D8 estão verdes** — a espinha dorsal de
+confiança que este plano descreveu antes da Etapa 1 está completa:
+
+| Teste de D8 | Onde saiu |
+|---|---|
+| Christoffel de diferença finita vs. fechado | Etapa 2 |
+| Curvatura gaussiana constante onde deve ser | Etapa 2 |
+| Geodésica numérica vs. analítica | Etapa 9 |
+| $\|v\|_g$ conservado ao longo da geodésica | Etapa 9 |
+| Holonomia = área (Gauss-Bonnet) | Etapa 8 |
+
+O teste de grande círculo compara contra a propriedade que *define* um grande círculo — o caminho
+mergulhado fica num plano pelo centro — e não contra uma parametrização. Em Schwarzschild, uma
+geodésica dirigida ao horizonte para entre $r=2$ e $r=2{,}2$ e diz que quem acabou foi a carta, que
+é o caso de uso para o qual D7 foi escrito.
+
 **Objetivo:** geodésica como "linha mais reta possível" traçada ao vivo a partir de um ponto e
 direção; desvio geodésico como duas geodésicas vizinhas se aproximando/afastando conforme a
 curvatura.

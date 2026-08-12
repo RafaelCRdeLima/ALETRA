@@ -80,6 +80,16 @@ export interface ChartPanelState {
     readonly caminho: readonly Float64Array[];
     readonly transportado: Float64Array;
   } | null;
+  /**
+   * A geodésica da Etapa 9 e, quando pedida, a vizinha do desvio geodésico.
+   *
+   * Duas e não uma porque a curvatura só vira *efeito* quando há com o que
+   * comparar: uma curva sozinha é sempre "reta" do ponto de vista dela mesma.
+   */
+  readonly geodesic: {
+    readonly principal: readonly Float64Array[];
+    readonly vizinha: readonly Float64Array[] | null;
+  } | null;
   readonly point: Float64Array;
   readonly vector: Float64Array;
   /** Máscara quadrada de degeneração (1 = não serve), ou null. */
@@ -208,6 +218,7 @@ export function createChartPanel(callbacks: ChartPanelCallbacks): ChartPanel {
     drawStack(state);
     drawBracket(state);
     drawLoop(state);
+    drawGeodesic(state);
     drawVector(state);
   }
 
@@ -527,6 +538,23 @@ export function createChartPanel(callbacks: ChartPanelCallbacks): ChartPanel {
     ponta.setAttribute('class', 'ponta-u');
     layers.vector.appendChild(ponta);
     layers.handles.appendChild(circle(ex, ey, 6, 'alca alca-u'));
+  }
+
+  /** A geodésica, e a vizinha atrás dela. */
+  function drawGeodesic(state: ChartPanelState): void {
+    if (!state.geodesic) return;
+    const traçar = (pontos: readonly Float64Array[], classe: string): void => {
+      if (pontos.length < 2) return;
+      const el = document.createElementNS(NS, 'polyline');
+      el.setAttribute(
+        'points',
+        pontos.map((p) => toPixel(state, Array.from(p)).join(',')).join(' '),
+      );
+      el.setAttribute('class', classe);
+      layers.vector.appendChild(el);
+    };
+    if (state.geodesic.vizinha) traçar(state.geodesic.vizinha, 'traco-vizinho');
+    traçar(state.geodesic.principal, 'traco-geodesico');
   }
 
   function drawVector(state: ChartPanelState): void {

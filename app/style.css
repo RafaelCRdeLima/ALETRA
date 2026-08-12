@@ -81,13 +81,15 @@ body {
  */
 .so-duas-formas,
 .so-derivada,
-.so-colchete {
+.so-colchete,
+.so-geodesica {
   display: none;
 }
 
 body.duas-formas .so-duas-formas,
 body.derivada .so-derivada,
-body.colchete .so-colchete {
+body.colchete .so-colchete,
+body.geodesica .so-geodesica {
   display: block;
 }
 
@@ -156,6 +158,47 @@ body.holonomia .so-duas-formas {
   stroke-width: 2;
   stroke-dasharray: 7 5;
   stroke-linejoin: round;
+}
+
+/*
+ * A geodésica e a vizinha. A vizinha vai mais fina e apagada: ela existe para o
+ * olho medir a separação contra a principal, não para competir com ela.
+ */
+/*
+ * `traco-geodesico`, e não `geodesica`: o modo põe `geodesica` no <body>, e uma
+ * regra com esse nome caía também nele. Como `stroke` é herdado em SVG, tudo que
+ * não define o seu — rótulos de eixo, células da hachura — ganhava contorno
+ * amarelo. Nome de classe de desenho não pode coincidir com nome de modo.
+ */
+.traco-geodesico {
+  fill: none;
+  stroke: var(--fraction);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.traco-vizinho {
+  fill: none;
+  stroke: var(--fraction);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.45;
+  stroke-dasharray: 6 4;
+}
+
+/*
+ * Na geodésica o vetor v é a direção de partida; não há one-form, nem morfose de
+ * ♭, nem segundo vetor. Ancorar em `.bloco-vetor` e não num `:not()` com
+ * combinador descendente, que não é CSS válido — a regra anterior era ignorada
+ * inteira, silenciosamente.
+ */
+body.geodesica .bloco-omega,
+body.geodesica .so-duas-formas,
+body.geodesica .bloco-vetor .derivado,
+body.geodesica .bloco-vetor .morfose {
+  display: none;
 }
 
 .vetor-transportado {

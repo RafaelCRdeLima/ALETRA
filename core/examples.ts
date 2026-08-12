@@ -140,7 +140,7 @@ export interface SceneState {
   readonly eta: readonly number[];
   readonly u: readonly number[];
   readonly laco: readonly number[];
-  readonly modo: 'uma' | 'duas' | 'derivada' | 'colchete' | 'holonomia';
+  readonly modo: 'uma' | 'duas' | 'derivada' | 'colchete' | 'holonomia' | 'geodesica';
   readonly bemol: number;
   /** A métrica como o autor digitou, que pode já ter divergido do exemplo. */
   readonly metrica: readonly string[];

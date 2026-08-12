@@ -47,8 +47,10 @@ ou `?exemplo=schwarzschild` escolhem a superfície.
 
 [Ver o modo limpo →](https://rafaelcrdelima.github.io/ALETRA/?limpo=1)
 
-Ainda não: ♯/♭ lado a lado, ∧, d, colchete de Lie, transporte paralelo,
-geodésicas, cena compartilhável por URL. O caminho está em [PLAN.md](PLAN.md), e
+As seis leituras do seletor: contar folhas ⟨ω,v⟩, contar células (ω∧η)(u,v),
+circulação dω(u,v) com d²=0 colapsando na tela, o vão dos fluxos [X,Y],
+holonomia (onde o ângulo **é** a área cercada) e geodésicas com desvio
+geodésico. O caminho está em [PLAN.md](PLAN.md), e
 o porquê de cada escolha técnica em [DECISIONS.md](DECISIONS.md).
 
 ## Desenvolvimento

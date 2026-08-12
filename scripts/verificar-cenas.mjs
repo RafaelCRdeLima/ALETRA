@@ -418,6 +418,41 @@ console.log('\n— holonomia —');
   await page.waitForTimeout(300);
 }
 
+// Etapa 9: a geodésica traçada, o desvio, e a parada que D7 pediu.
+console.log('\n— geodésicas —');
+{
+  const num = (t) => Number(t.replace(/\./g, '').replace(',', '.'));
+  await page.selectOption('#seletor', 'esfera');
+  await page.selectOption('#modo', 'geodesica');
+  await page.waitForTimeout(800);
+
+  const principal = await page.locator('.chart-panel .traco-geodesico').count();
+  const vizinha = await page.locator('.chart-panel .traco-vizinho').count();
+  console.log(
+    `  esfera: comprimento = ${num((await page.textContent('#numeral-value')).trim()).toFixed(3)}, ` +
+      `curvas desenhadas: principal=${principal}, vizinha=${vizinha}  ` +
+      `${principal === 1 && vizinha === 1 ? '✓' : '✗'}`,
+  );
+  console.log(`  glosa: "${(await page.textContent('#numeral-gloss')).trim()}"`);
+  await page.screenshot({ path: `${OUT}/geodesica.png` });
+
+  // Schwarzschild dirigida ao horizonte: tem de parar e dizer por quê (D7).
+  await page.selectOption('#seletor', 'schwarzschild');
+  await page.waitForTimeout(500);
+  await page.locator('#campos-vetor input').nth(0).fill('-1');
+  await page.locator('#campos-vetor input').nth(1).fill('0');
+  await page.locator('#alcance').fill('6');
+  await page.waitForTimeout(900);
+  const parada = (await page.textContent('#parada-geodesica'))?.trim();
+  console.log(`  Schwarzschild rumo ao horizonte: "${parada.slice(0, 78)}…"`);
+  console.log(`    ${parada.includes('carta') ? '✓ diz que é a carta, não a geometria' : '✗'}`);
+  await page.screenshot({ path: `${OUT}/geodesica-horizonte.png` });
+
+  await page.selectOption('#seletor', 'esfera');
+  await page.selectOption('#modo', 'uma');
+  await page.waitForTimeout(300);
+}
+
 // Etapa 4: o critério é ida e volta *de verdade* — alterar a cena, copiar o
 // link, abrir numa aba nova sem estado nenhum, e conferir que voltou igual.
 // Recarregar a mesma aba não provaria nada: sobreviveria a qualquer cache.

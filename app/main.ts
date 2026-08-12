@@ -17,6 +17,7 @@ import { flowPath } from '../core/flow';
 import { lieBracket } from '../core/lie';
 import { enclosedArea, holonomy, rectangleLoop } from '../core/transport';
 import { gaussianCurvature } from '../core/curvature';
+import { geodesicDeviation, traceGeodesic, type Geodesica } from '../core/geodesic';
 import { compileFormField, compileScalar } from '../core/metric-expr';
 import { ParseError } from '../core/expr';
 import { normSquared, type ChristoffelFn, type MetricFn } from '../core/metric';
@@ -137,8 +138,8 @@ let bemol = 0;
  * número corresponde a qual desenho, que é exatamente o trabalho que este
  * produto existe para poupar.
  */
-type Modo = 'uma' | 'duas' | 'derivada' | 'colchete' | 'holonomia';
-const MODOS: readonly Modo[] = ['uma', 'duas', 'derivada', 'colchete', 'holonomia'];
+type Modo = 'uma' | 'duas' | 'derivada' | 'colchete' | 'holonomia' | 'geodesica';
+const MODOS: readonly Modo[] = ['uma', 'duas', 'derivada', 'colchete', 'holonomia', 'geodesica'];
 const paramModo = params.get('modo');
 let modo: Modo = MODOS.includes(paramModo as Modo) ? (paramModo as Modo) : 'uma';
 
@@ -168,6 +169,10 @@ const campoY = ['0', 'x'];
  * conforme ele encolhe o passo.
  */
 let tempoFluxo = 1.2;
+
+/** Alcance da geodésica (em λ) e se a vizinha é traçada junto. */
+let alcance = 3;
+let verDesvio = true;
 
 /**
  * Padrões dos campos: X coordenado e Y = (1 + x) ∂_y, cujo colchete é ∂_y.
@@ -391,7 +396,8 @@ function render3D(
   const aviso = el<HTMLParagraphElement>('sem-mergulho');
   aviso.hidden = active;
   if (!active) {
-    aviso.textContent = modo === 'colchete' || modo === 'holonomia'
+    aviso.textContent =
+      modo === 'colchete' || modo === 'holonomia' || modo === 'geodesica'
       ? 'Esta leitura vive na carta: é lá que o laço se fecha e o giro se lê. ' +
         'Ainda não há desenho dela em ℝ³.'
       : scene.example.embedding === 'sphere'
@@ -587,7 +593,12 @@ function movePoint(candidate: Float64Array): void {
  * tenha caminho de HTML interpolado, e deixar um aberto convida o próximo trecho
  * a interpolar algo que veio do aluno.
  */
-function paintNumeral(value: number, colchete: Colchete | null, giro: Giro | null): void {
+function paintNumeral(
+  value: number,
+  colchete: Colchete | null,
+  giro: Giro | null,
+  traco: Traco | null,
+): void {
   const reading = read(value);
   el('numeral-value').textContent = Number.isFinite(value) ? ptBR(reading.value) : '—';
 
@@ -597,6 +608,24 @@ function paintNumeral(value: number, colchete: Colchete | null, giro: Giro | nul
   // A holonomia é um ângulo, e a glosa põe ao lado a área cercada — que é o
   // mesmo número quando K = 1. É a leitura de Gauss-Bonnet acontecendo na tela:
   // o ângulo não *parece* a área, ele **é** a área.
+  // A geodésica não conta nada: mede comprimento. A glosa mostra a separação da
+  // vizinha, que é a curvatura vista como efeito — encolhe onde K>0, cresce onde
+  // K<0. E o aviso de parada, quando há, é conteúdo (D7).
+  if (modo === 'geodesica') {
+    const alvo = el('numeral-gloss');
+    if (traco?.vizinha) {
+      const forte = document.createElement('span');
+      forte.className = 'frac';
+      forte.textContent = ptBR(traco.separacaoFinal);
+      alvo.replaceChildren(`separação ${ptBR(traco.separacaoInicial)} → `, forte);
+    } else {
+      alvo.replaceChildren('comprimento de arco');
+    }
+    const parada = el('parada-geodesica');
+    parada.textContent = traco ? (PARADA[traco.principal.motivo] ?? '') : '';
+    return;
+  }
+
   if (modo === 'holonomia') {
     const alvo = el('numeral-gloss');
     const forte = document.createElement('span');
@@ -743,6 +772,66 @@ function calcularGiro(): Giro | null {
   };
 }
 
+interface Traco {
+  readonly principal: Geodesica;
+  readonly vizinha: Geodesica | null;
+  readonly separacaoInicial: number;
+  readonly separacaoFinal: number;
+}
+
+const PARADA: Readonly<Record<string, string>> = {
+  completa: '',
+  'fora-da-carta': 'A geodésica saiu da região desenhada da carta — ela continua, o desenho é que acabou.',
+  'metrica-degenerada':
+    'A geodésica parou onde a métrica deixa de servir. Não é a curva que acaba: é a carta. ' +
+    'Em Schwarzschild isto é o horizonte, e outra escolha de coordenadas atravessaria.',
+};
+
+/**
+ * A geodésica a partir de (p, v), e a vizinha que mostra o desvio.
+ *
+ * O passo de integração vem do alcance dividido por um número fixo de amostras,
+ * e não o contrário: assim mexer no alcance muda o quanto da curva se vê, e não
+ * a qualidade com que ela é integrada.
+ */
+function tracarGeodesica(): Traco | null {
+  const AMOSTRAS = 220;
+  const opcoes = {
+    passos: AMOSTRAS,
+    dLambda: alcance / AMOSTRAS,
+    limites: scene.example.bounds,
+  };
+  if (!Number.isFinite(scene.v[0]!) || !Number.isFinite(scene.v[1]!)) return null;
+
+  if (!verDesvio) {
+    const principal = traceGeodesic(
+      scene.metric, scene.christoffel, scene.x, scene.v, DIM, opcoes,
+    );
+    return { principal, vizinha: null, separacaoInicial: 0, separacaoFinal: 0 };
+  }
+
+  // O deslocamento da vizinha é perpendicular à partida, para a separação medir
+  // desvio e não atraso: duas geodésicas na mesma reta se afastariam por estarem
+  // em pontos diferentes da mesma curva, o que não é curvatura nenhuma.
+  const lado = perpendicular(scene.v);
+  const escala = 0.04 * Math.min(
+    scene.example.bounds.max[0]! - scene.example.bounds.min[0]!,
+    scene.example.bounds.max[1]! - scene.example.bounds.min[1]!,
+  );
+  const norma = Math.hypot(lado[0]!, lado[1]!) || 1;
+  const offset = Float64Array.from([(lado[0]! / norma) * escala, (lado[1]! / norma) * escala]);
+
+  const d = geodesicDeviation(
+    scene.metric, scene.christoffel, scene.x, scene.v, offset, DIM, opcoes,
+  );
+  return {
+    principal: d.principal,
+    vizinha: d.vizinha,
+    separacaoInicial: d.separacoes[0] ?? 0,
+    separacaoFinal: d.separacoes[d.separacoes.length - 1] ?? 0,
+  };
+}
+
 interface Colchete {
   readonly caminhoXY: Float64Array[];
   readonly caminhoYX: Float64Array[];
@@ -805,6 +894,7 @@ function update(): void {
   const derivada = modo === 'derivada';
   const colchete = modo === 'colchete' ? calcularColchete() : null;
   const giro = modo === 'holonomia' ? calcularGiro() : null;
+  const traco = modo === 'geodesica' ? tracarGeodesica() : null;
   const comCelulas = duasFormas || derivada;
 
   // No modo derivada ω é o campo digitado (ou df dele), avaliado em p para a
@@ -819,7 +909,9 @@ function update(): void {
 
   const sigma = duasFormas ? wedge(scene.omega, scene.eta) : dOmega;
   const value =
-    modo === 'holonomia'
+    modo === 'geodesica'
+      ? (traco?.principal.comprimento ?? 0)
+      : modo === 'holonomia'
       ? (giro?.angulo ?? 0)
       : modo === 'colchete'
       ? (colchete?.vao ?? 0)
@@ -838,7 +930,10 @@ function update(): void {
     {
       components: finitos(omegaLocal.components),
       classe: 'folha',
-      opacidade: modo === 'colchete' || modo === 'holonomia' ? 0 : opa.omega,
+      // Nas leituras que não têm one-form em cena — colchete, holonomia,
+      // geodésica — a pilha de ω seria ruído puro sobre o que importa.
+      opacidade:
+        modo === 'colchete' || modo === 'holonomia' || modo === 'geodesica' ? 0 : opa.omega,
     },
     duasFormas
       ? { components: scene.eta.components, classe: 'folha-eta', opacidade: 0.92 }
@@ -878,6 +973,9 @@ function update(): void {
         : null,
       vectorU: comCelulas ? scene.u : giro ? scene.laco : null,
       loop: giro ? { caminho: giro.caminho, transportado: giro.transportado } : null,
+      geodesic: traco
+        ? { principal: traco.principal.caminho, vizinha: traco.vizinha?.caminho ?? null }
+        : null,
       bracket: colchete
         ? { caminhoXY: colchete.caminhoXY, caminhoYX: colchete.caminhoYX }
         : null,
@@ -885,7 +983,7 @@ function update(): void {
       vector: scene.v,
       mask: scene.mask,
       maskResolution: MASK_RESOLUTION,
-      cut: comCelulas || giro ? null : { value, whole: read(value).whole },
+      cut: comCelulas || giro || traco ? null : { value, whole: read(value).whole },
     });
   }
 
@@ -894,9 +992,10 @@ function update(): void {
   // Nem o quadrilátero de fluxos nem o laço da holonomia têm desenho em ℝ³:
   // os dois vivem na carta. Mostrar a cena 3D sem eles exibiria um vetor que
   // não participa da leitura.
-  const tresDe = comMergulho && modo !== 'colchete' && modo !== 'holonomia';
+  const tresDe =
+    comMergulho && modo !== 'colchete' && modo !== 'holonomia' && modo !== 'geodesica';
   render3D(value, tresDe, vBemol, comCelulas, omegaLocal);
-  paintNumeral(value, colchete, giro);
+  paintNumeral(value, colchete, giro, traco);
   paintBemol(vBemol);
   syncVectorFields();
   syncUFields();
@@ -1154,6 +1253,7 @@ function syncEtaControls(): void {
 }
 
 const ROTULO_NUMERAL: Readonly<Record<Modo, string>> = {
+  geodesica: 'comprimento',
   uma: '⟨ω, v⟩',
   duas: '(ω∧η)(u, v)',
   derivada: 'dω(u, v)',
@@ -1180,6 +1280,7 @@ function aplicarModo(): void {
   document.body.classList.toggle('derivada', modo === 'derivada');
   document.body.classList.toggle('colchete', modo === 'colchete');
   document.body.classList.toggle('holonomia', modo === 'holonomia');
+  document.body.classList.toggle('geodesica', modo === 'geodesica');
   el<HTMLSelectElement>('modo').value = modo;
   el('numeral-label').textContent = ROTULO_NUMERAL[modo];
 }
@@ -1223,6 +1324,18 @@ function bindModo(): void {
       });
     }
   }
+
+  const rangeAlcance = el<HTMLInputElement>('alcance');
+  rangeAlcance.addEventListener('input', () => {
+    alcance = Number(rangeAlcance.value);
+    update();
+  });
+
+  const checkDesvio = el<HTMLInputElement>('ver-desvio');
+  checkDesvio.addEventListener('change', () => {
+    verDesvio = checkDesvio.checked;
+    update();
+  });
 
   const tempo = el<HTMLInputElement>('tempo-fluxo');
   tempo.addEventListener('input', () => {
