@@ -80,12 +80,14 @@ body {
  * pede para ser entendido, e a barra já está cheia.
  */
 .so-duas-formas,
-.so-derivada {
+.so-derivada,
+.so-colchete {
   display: none;
 }
 
 body.duas-formas .so-duas-formas,
-body.derivada .so-derivada {
+body.derivada .so-derivada,
+body.colchete .so-colchete {
   display: block;
 }
 
@@ -93,13 +95,44 @@ body.derivada .so-derivada {
 body.duas-formas .derivado,
 body.duas-formas .morfose,
 body.derivada .derivado,
-body.derivada .morfose {
+body.derivada .morfose,
+body.colchete .derivado {
   display: none;
 }
 
 /* No modo derivada quem manda em ω é o campo digitado, não os sliders. */
 body.derivada .bloco-omega {
   display: none;
+}
+
+/* No colchete não há one-form nem vetor solto em cena: só os dois campos. */
+body.colchete .bloco-omega,
+body.colchete .bloco-vetor,
+body.colchete .so-duas-formas {
+  display: none;
+}
+
+/* O quadrilátero: dois caminhos e o vão que sobra entre as pontas. */
+.caminho-x {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.caminho-y {
+  fill: none;
+  stroke: #6fb3c9;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.vao {
+  stroke: var(--brand);
+  stroke-width: 4.5;
+  stroke-linecap: round;
 }
 
 .alternativa {

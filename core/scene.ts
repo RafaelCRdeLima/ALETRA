@@ -33,8 +33,8 @@ export interface SceneDoc {
   /** Segunda 1-form e segundo vetor: a 2-form da Etapa 5 é ω ∧ η, lida em (u, v). */
   readonly eta: readonly number[];
   readonly u: readonly number[];
-  /** Qual leitura a cena abre mostrando: folhas, células, ou circulação. */
-  readonly modo: 'uma' | 'duas' | 'derivada';
+  /** Qual leitura a cena abre mostrando: folhas, células, circulação ou vão. */
+  readonly modo: 'uma' | 'duas' | 'derivada' | 'colchete';
   readonly maxVetor: number;
   /** Morfose v ⇄ v♭ da Etapa 3, em [0, 1]. */
   readonly bemol: number;
@@ -45,6 +45,13 @@ export interface SceneDoc {
 }
 
 export const VERSAO_ATUAL = 1;
+
+/** As leituras que o produto sabe abrir. Cresce a cada etapa que traz uma nova. */
+const MODOS_CONHECIDOS = ['uma', 'duas', 'derivada', 'colchete'] as const;
+type ModoCena = (typeof MODOS_CONHECIDOS)[number];
+
+const ehModo = (valor: unknown): valor is ModoCena =>
+  typeof valor === 'string' && (MODOS_CONHECIDOS as readonly string[]).includes(valor);
 
 export class SceneError extends Error {
   constructor(message: string) {
@@ -141,8 +148,10 @@ export function sceneFromUnknown(bruto: unknown): SceneDoc {
   // paralelo a ω daria ω∧η = 0 e um ladrilho sem células).
   const girar = (c: readonly number[]): number[] => [-c[1]!, c[0]!];
   const modo = o['modo'] ?? 'uma';
-  if (modo !== 'uma' && modo !== 'duas' && modo !== 'derivada') {
-    throw new SceneError('cena.modo: só "uma", "duas" ou "derivada" são conhecidos');
+  if (!ehModo(modo)) {
+    throw new SceneError(
+      `cena.modo: só ${MODOS_CONHECIDOS.map((m) => `"${m}"`).join(', ')} são conhecidos`,
+    );
   }
 
   return {

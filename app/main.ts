@@ -13,6 +13,8 @@ import { evaluate, form, type Form } from '../core/forms';
 import { flatForm } from '../core/musical';
 import { cellEdges, cellEdgesFromDensity, wedge } from '../core/wedge';
 import { differential0, differential1, type FormField } from '../core/exterior';
+import { flowPath } from '../core/flow';
+import { lieBracket } from '../core/lie';
 import { compileFormField, compileScalar } from '../core/metric-expr';
 import { ParseError } from '../core/expr';
 import { normSquared, type ChristoffelFn, type MetricFn } from '../core/metric';
@@ -95,8 +97,8 @@ let bemol = 0;
  * número corresponde a qual desenho, que é exatamente o trabalho que este
  * produto existe para poupar.
  */
-type Modo = 'uma' | 'duas' | 'derivada';
-const MODOS: readonly Modo[] = ['uma', 'duas', 'derivada'];
+type Modo = 'uma' | 'duas' | 'derivada' | 'colchete';
+const MODOS: readonly Modo[] = ['uma', 'duas', 'derivada', 'colchete'];
 const paramModo = params.get('modo');
 let modo: Modo = MODOS.includes(paramModo as Modo) ? (paramModo as Modo) : 'uma';
 
@@ -112,6 +114,51 @@ const campoOmega = ['0', '0'];
 let funcaoF = '0';
 let usarDf = false;
 let erroCampo: string | null = null;
+
+/** Os dois campos vetoriais da Etapa 7, e o tempo de cada trecho de fluxo. */
+const campoX = ['1', '0'];
+const campoY = ['0', 'x'];
+/**
+ * Passo de fluxo generoso por padrão.
+ *
+ * Com t pequeno o vão é da ordem de t² e vira alguns pixels num painel de
+ * centenas — os números ficavam certos e o desenho ilegível, que para este
+ * produto é o mesmo que estar errado. Com t grande o vão é visível, e a glosa
+ * mostrando t²·|[X,Y]| ao lado deixa o próprio aluno ver a aproximação apertar
+ * conforme ele encolhe o passo.
+ */
+let tempoFluxo = 1.2;
+
+/**
+ * Padrões dos campos: X coordenado e Y = (1 + x) ∂_y, cujo colchete é ∂_y.
+ *
+ * Escolhidos para o quadrilátero nascer aberto **e não degenerado**. Dois campos
+ * que comutam dariam vão zero, e o aluno veria um losango fechado sem saber que
+ * aquilo era o ponto. Mas `Y = x ∂_y` — o exemplo de livro — tem outro problema:
+ * ele *vale zero* na origem, que é o ponto inicial do plano euclidiano, e aí o
+ * primeiro trecho de um dos caminhos não sai do lugar. Os dois caminhos se
+ * sobrepõem, o quadrilátero vira triângulo, e o desenho conta uma história
+ * errada. O `1 +` não muda o colchete e desfaz a degenerescência.
+ *
+ * O caso que comuta continua a um campo de distância: trocar `1 + x` por `1`
+ * fecha o quadrilátero na frente do aluno.
+ */
+function padroesDosCampos(nomes: readonly string[]): { x: [string, string]; y: [string, string] } {
+  const a = nomes[0] ?? 'x';
+  return { x: ['1', '0'], y: ['0', `1 + ${a}`] };
+}
+
+/**
+ * Passo de fluxo proporcional ao tamanho da carta.
+ *
+ * Um t fixo serve a uma carta só: 1,2 é generoso no plano euclidiano (que vai de
+ * -3 a 3) e joga o caminho para fora da esfera (onde θ só vai até π). A fração
+ * do menor intervalo mantém o quadrilátero visível e dentro da carta em todas.
+ */
+function passoPadrao(bounds: { min: readonly number[]; max: readonly number[] }): number {
+  const menor = Math.min(bounds.max[0]! - bounds.min[0]!, bounds.max[1]! - bounds.min[1]!);
+  return Math.min(2, Math.max(0.1, 0.2 * menor));
+}
 
 /**
  * Os padrões do campo vêm dos nomes da carta, não escritos à mão.
@@ -302,8 +349,10 @@ function render3D(
   const aviso = el<HTMLParagraphElement>('sem-mergulho');
   aviso.hidden = active;
   if (!active) {
-    aviso.textContent =
-      scene.example.embedding === 'sphere'
+    aviso.textContent = modo === 'colchete'
+      ? 'O quadrilátero de fluxos vive na carta: é lá que o vão entre os dois ' +
+        'caminhos se lê. Esta etapa ainda não tem desenho em ℝ³.'
+      : scene.example.embedding === 'sphere'
         ? 'A métrica foi editada: o mergulho desenhado aqui é o da esfera original e já não ' +
           'corresponde ao que está escrito. O painel de carta continua correto.'
         : `Esta métrica não tem um mergulho em ℝ³ definido neste estágio — ${scene.example.label} ` +
@@ -485,9 +534,22 @@ function movePoint(candidate: Float64Array): void {
  * tenha caminho de HTML interpolado, e deixar um aberto convida o próximo trecho
  * a interpolar algo que veio do aluno.
  */
-function paintNumeral(value: number): void {
+function paintNumeral(value: number, colchete: Colchete | null): void {
   const reading = read(value);
   el('numeral-value').textContent = Number.isFinite(value) ? ptBR(reading.value) : '—';
+
+  // O colchete não conta nada: ele mede um vão. A glosa põe ao lado o que a
+  // teoria prevê, t²·|[X,Y]|, porque é a comparação que distingue "abriu" de
+  // "abriu pelo colchete" — sem ela, erro de integração passaria por geometria.
+  if (modo === 'colchete') {
+    const previsto = colchete ? ptBR(colchete.previsto) : '—';
+    const alvo = el('numeral-gloss');
+    const forte = document.createElement('span');
+    forte.className = 'frac';
+    forte.textContent = previsto;
+    alvo.replaceChildren('t²·|[X, Y]| = ', forte);
+    return;
+  }
 
   // A unidade muda com o modo, mas a disciplina de D11 não: o inteiro é o que
   // foi atravessado ou cercado por completo, e a fração nunca some.
@@ -568,6 +630,49 @@ function avaliarCampo(campo: FormField): Form {
   return form(DIM, 1, Array.from(out));
 }
 
+interface Colchete {
+  readonly caminhoXY: Float64Array[];
+  readonly caminhoYX: Float64Array[];
+  readonly vao: number;
+  readonly previsto: number;
+}
+
+/**
+ * O quadrilátero de fluxos, com os caminhos inteiros e não só as pontas.
+ *
+ * `previsto` é t²·|[X,Y]| — a previsão da teoria. Mostrar os dois lado a lado é
+ * o que separa "o quadrilátero abriu" de "o quadrilátero abriu **pelo colchete**":
+ * sem a comparação, um erro de integração pareceria geometria.
+ */
+function calcularColchete(): Colchete | null {
+  try {
+    erroCampo = null;
+    const X = compileFormField(scene.example.chart, campoX);
+    const Y = compileFormField(scene.example.chart, campoY);
+    const PASSOS = 14;
+    const t = tempoFluxo;
+
+    const trechoX = flowPath(X, scene.x, t, PASSOS, DIM);
+    const trechoXY = flowPath(Y, trechoX[trechoX.length - 1]!, t, PASSOS, DIM);
+    const trechoY = flowPath(Y, scene.x, t, PASSOS, DIM);
+    const trechoYX = flowPath(X, trechoY[trechoY.length - 1]!, t, PASSOS, DIM);
+
+    const fimXY = trechoXY[trechoXY.length - 1]!;
+    const fimYX = trechoYX[trechoYX.length - 1]!;
+    const b = lieBracket(X, Y, scene.x, DIM);
+
+    return {
+      caminhoXY: [...trechoX, ...trechoXY.slice(1)],
+      caminhoYX: [...trechoY, ...trechoYX.slice(1)],
+      vao: Math.hypot(fimXY[0]! - fimYX[0]!, fimXY[1]! - fimYX[1]!),
+      previsto: t * t * Math.hypot(b[0]!, b[1]!),
+    };
+  } catch (error) {
+    erroCampo = error instanceof Error ? error.message : 'não consegui ler os campos';
+    return null;
+  }
+}
+
 // ------------------------------------------------------------------- update
 
 function update(): void {
@@ -585,6 +690,7 @@ function update(): void {
 
   const duasFormas = modo === 'duas';
   const derivada = modo === 'derivada';
+  const colchete = modo === 'colchete' ? calcularColchete() : null;
   const comCelulas = duasFormas || derivada;
 
   // No modo derivada ω é o campo digitado (ou df dele), avaliado em p para a
@@ -598,18 +704,26 @@ function update(): void {
   const omegaLocal = campo ? avaliarCampo(campo) : scene.omega;
 
   const sigma = duasFormas ? wedge(scene.omega, scene.eta) : dOmega;
-  const value = comCelulas
-    ? sigma
-      ? evaluate(sigma, [scene.u, scene.v])
-      : 0
-    : evaluate(scene.omega, [scene.v]);
+  const value =
+    modo === 'colchete'
+      ? (colchete?.vao ?? 0)
+      : comCelulas
+        ? sigma
+          ? evaluate(sigma, [scene.u, scene.v])
+          : 0
+        : evaluate(scene.omega, [scene.v]);
   const vBemol = flatForm(scene.metric, scene.x, scene.v, DIM);
   const opa = opacidades();
 
   // No modo 2-form a segunda camada é η, e o cruzamento das duas pilhas é o
   // ladrilho. No modo 1-form ela é v♭, que é a leitura da Etapa 3.
+  // No colchete não há one-form em cena: o desenho é só o quadrilátero.
   const camadas = [
-    { components: finitos(omegaLocal.components), classe: 'folha', opacidade: opa.omega },
+    {
+      components: finitos(omegaLocal.components),
+      classe: 'folha',
+      opacidade: modo === 'colchete' ? 0 : opa.omega,
+    },
     duasFormas
       ? { components: scene.eta.components, classe: 'folha-eta', opacidade: 0.92 }
       : {
@@ -639,6 +753,9 @@ function update(): void {
           }
         : null,
       vectorU: comCelulas ? scene.u : null,
+      bracket: colchete
+        ? { caminhoXY: colchete.caminhoXY, caminhoYX: colchete.caminhoYX }
+        : null,
       point: scene.x,
       vector: scene.v,
       mask: scene.mask,
@@ -647,8 +764,10 @@ function update(): void {
     });
   }
 
-  render3D(value, comMergulho, vBemol, comCelulas, omegaLocal);
-  paintNumeral(value);
+  // O quadrilátero de fluxos ainda não tem desenho em ℝ³ — ele vive na carta.
+  // Mostrar a cena 3D sem ele exibiria um vetor que não participa da leitura.
+  render3D(value, comMergulho && modo !== 'colchete', vBemol, comCelulas, omegaLocal);
+  paintNumeral(value, colchete);
   paintBemol(vBemol);
   syncVectorFields();
   syncUFields();
@@ -899,11 +1018,13 @@ const ROTULO_NUMERAL: Readonly<Record<Modo, string>> = {
   uma: '⟨ω, v⟩',
   duas: '(ω∧η)(u, v)',
   derivada: 'dω(u, v)',
+  colchete: '|vão|',
 };
 
 function aplicarModo(): void {
   document.body.classList.toggle('duas-formas', modo === 'duas');
   document.body.classList.toggle('derivada', modo === 'derivada');
+  document.body.classList.toggle('colchete', modo === 'colchete');
   el<HTMLSelectElement>('modo').value = modo;
   el('numeral-label').textContent = ROTULO_NUMERAL[modo];
 }
@@ -934,6 +1055,25 @@ function bindModo(): void {
     usarDf = alternar.checked;
     update();
   });
+
+  for (const [prefixo, destino] of [
+    ['campo-x', campoX],
+    ['campo-y', campoY],
+  ] as const) {
+    for (let i = 0; i < DIM; i++) {
+      const input = el<HTMLInputElement>(`${prefixo}-${i}`);
+      input.addEventListener('input', () => {
+        destino[i] = input.value;
+        update();
+      });
+    }
+  }
+
+  const tempo = el<HTMLInputElement>('tempo-fluxo');
+  tempo.addEventListener('input', () => {
+    tempoFluxo = Number(tempo.value);
+    update();
+  });
 }
 
 /**
@@ -949,9 +1089,19 @@ function syncCampoLabels(): void {
   campoOmega[1] = padroes.omega[1];
   funcaoF = padroes.f;
 
+  const campos = padroesDosCampos(scene.example.chart.names);
+  campoX[0] = campos.x[0];
+  campoX[1] = campos.x[1];
+  campoY[0] = campos.y[0];
+  campoY[1] = campos.y[1];
+  tempoFluxo = passoPadrao(scene.example.bounds);
+  el<HTMLInputElement>('tempo-fluxo').value = String(tempoFluxo);
+
   for (let i = 0; i < DIM; i++) {
     el(`sub-campo-${i}`).textContent = scene.example.chart.symbols[i] ?? String(i);
     el<HTMLInputElement>(`campo-omega-${i}`).value = campoOmega[i]!;
+    el<HTMLInputElement>(`campo-x-${i}`).value = campoX[i]!;
+    el<HTMLInputElement>(`campo-y-${i}`).value = campoY[i]!;
   }
   el<HTMLInputElement>('campo-f').value = funcaoF;
 }

@@ -126,11 +126,11 @@ describe('recusa de entrada malformada', () => {
   });
 
   it('recusa modo desconhecido', () => {
-    recusa({ modo: 'tres' }, /só "uma", "duas" ou "derivada"/);
+    recusa({ modo: 'tres' }, /cena\.modo: só/);
   });
 
-  it('aceita os três modos conhecidos', () => {
-    for (const modo of ['uma', 'duas', 'derivada'] as const) {
+  it('aceita todos os modos conhecidos', () => {
+    for (const modo of ['uma', 'duas', 'derivada', 'colchete'] as const) {
       expect(sceneFromText(JSON.stringify({ ...BASE, modo })).modo).toBe(modo);
     }
   });

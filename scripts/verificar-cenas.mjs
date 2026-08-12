@@ -311,6 +311,64 @@ console.log('\n— d e o colapso de d² —');
   await page.waitForTimeout(300);
 }
 
+// Etapa 7: o quadrilátero que não fecha. O critério do plano é que campos
+// coordenados fechem e campos que não comutam abram — e que o vão escale com t².
+console.log('\n— colchete de Lie —');
+{
+  await page.selectOption('#seletor', 'euclidiano');
+  await page.selectOption('#modo', 'colchete');
+  await page.waitForTimeout(700);
+
+  const num = (t) => Number(t.replace(/\./g, '').replace(',', '.'));
+  const vao = async () => num((await page.textContent('#numeral-value')).trim());
+  // O texto da glosa é "t²·|[X, Y]| = 1,00": tirar tudo que não é dígito
+  // engoliria a vírgula de "[X, Y]" junto. O número é o que vem depois do "=".
+  const previsto = async () =>
+    num((await page.textContent('#numeral-gloss')).split('=').pop().trim());
+
+  const campos = async () =>
+    `X=(${await page.locator('#campo-x-0').inputValue()},${await page
+      .locator('#campo-x-1')
+      .inputValue()}), Y=(${await page.locator('#campo-y-0').inputValue()},${await page
+      .locator('#campo-y-1')
+      .inputValue()})`;
+
+  const aberto = await vao();
+  console.log(
+    `  ${await campos()}: vão = ${aberto.toFixed(4)}, ` +
+      `t²·|[X,Y]| = ${(await previsto()).toFixed(4)}  ` +
+      `${aberto > 0.05 ? '✓ não fecha' : '✗ FECHOU'}`,
+  );
+  await page.screenshot({ path: `${OUT}/colchete.png` });
+
+  // Campos coordenados comutam: o quadrilátero tem de fechar.
+  await page.locator('#campo-y-1').fill('1');
+  await page.waitForTimeout(600);
+  const fechado = await vao();
+  console.log(
+    `  X=(1,0), Y=(0,1): vão = ${fechado.toFixed(4)}  ` +
+      `${fechado < 0.005 ? '✓ fecha' : '✗ NÃO FECHOU'}`,
+  );
+  await page.screenshot({ path: `${OUT}/colchete-fecha.png` });
+
+  // O vão escala com t²: metade do passo, um quarto do vão.
+  await page.locator('#campo-y-1').fill('x');
+  await page.locator('#tempo-fluxo').fill('0.4');
+  await page.waitForTimeout(600);
+  const grande = await vao();
+  await page.locator('#tempo-fluxo').fill('0.2');
+  await page.waitForTimeout(600);
+  const pequeno = await vao();
+  const razao = grande / pequeno;
+  console.log(
+    `  t: 0,40 → 0,20 dá vão ${grande.toFixed(4)} → ${pequeno.toFixed(4)}, razão ${razao.toFixed(2)}  ` +
+      `${razao > 3.5 && razao < 4.5 ? '✓ escala com t²' : '✗ ESCALA ERRADA'}`,
+  );
+
+  await page.selectOption('#modo', 'uma');
+  await page.waitForTimeout(300);
+}
+
 // Etapa 4: o critério é ida e volta *de verdade* — alterar a cena, copiar o
 // link, abrir numa aba nova sem estado nenhum, e conferir que voltou igual.
 // Recarregar a mesma aba não provaria nada: sobreviveria a qualquer cache.

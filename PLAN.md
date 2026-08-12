@@ -293,6 +293,16 @@ zero).
 
 ## Etapa 7 — Colchete de Lie
 
+**Estado:** construída. Dois campos digitados, os dois caminhos traçados, e o vão entre as chegadas
+desenhado por cima. Medido no navegador: com $X=\partial_x$ e $Y=(1+x)\partial_y$ o vão é $1{,}44$ e
+$t^2|[X,Y]|$ é $1{,}44$; trocando $Y$ por um campo coordenado o vão vai a zero e o quadrilátero
+fecha; e dobrar $t$ multiplica o vão por $4{,}00$ — a escala $t^2$ que o critério pede, medida.
+
+**O integrador chegou aqui, não na Etapa 9.** O escopo dizia "reaproveita o integrador RK4 do
+núcleo (D5)", mas ele não existia: nenhuma etapa anterior precisou dele. Foi escrito nesta, com o
+passo fixo que D5 especifica, e a Etapa 9 é que vai reaproveitá-lo para geodésicas — a ordem
+inverteu, a peça é a mesma.
+
 **Objetivo:** o quadrilátero de fluxos que não fecha — mostrar dois campos vetoriais, seguir fluxo
 de um depois do outro e vice-versa, e o gap visível é o colchete.
 

@@ -24,6 +24,7 @@
         <option value="uma">⟨ω, v⟩ — contar folhas</option>
         <option value="duas">(ω∧η)(u, v) — contar células</option>
         <option value="derivada">dω(u, v) — circulação</option>
+        <option value="colchete">[X, Y] — o vão dos fluxos</option>
       </select>
       <button id="copiar" type="button">copiar link</button>
       <div id="numeral" aria-live="polite">
@@ -54,7 +55,7 @@
         <p class="aviso" id="aviso-singularidade" hidden></p>
       </div>
 
-      <div class="bloco">
+      <div class="bloco bloco-vetor">
         <span class="bloco-titulo">Vetor v</span>
         <div id="campos-vetor"></div>
         <p class="derivado" id="v-bemol"></p>
@@ -86,6 +87,24 @@
         <label class="alternativa">
           <input id="usar-df" type="checkbox" />
           <span>usar ω = df</span>
+        </label>
+      </div>
+
+      <div class="bloco so-colchete">
+        <span class="bloco-titulo">Campos X e Y</span>
+        <div class="campo">
+          <span>X =</span>
+          <input id="campo-x-0" type="text" spellcheck="false" value="1" />
+          <input id="campo-x-1" type="text" spellcheck="false" value="0" />
+        </div>
+        <div class="campo">
+          <span>Y =</span>
+          <input id="campo-y-0" type="text" spellcheck="false" value="0" />
+          <input id="campo-y-1" type="text" spellcheck="false" value="x" />
+        </div>
+        <label class="morfose">
+          <span>passo t</span>
+          <input id="tempo-fluxo" type="range" min="0.1" max="2" step="0.01" value="1.2" />
         </label>
       </div>
 

@@ -61,6 +61,14 @@ export interface ChartPanelState {
   } | null;
   /** Segundo vetor desenhado, quando existe. */
   readonly vectorU: Float64Array | null;
+  /**
+   * O quadrilátero de fluxos da Etapa 7: dois caminhos que saem do mesmo ponto
+   * e não chegam ao mesmo lugar. O vão entre as pontas é o colchete.
+   */
+  readonly bracket: {
+    readonly caminhoXY: readonly Float64Array[];
+    readonly caminhoYX: readonly Float64Array[];
+  } | null;
   readonly point: Float64Array;
   readonly vector: Float64Array;
   /** Máscara quadrada de degeneração (1 = não serve), ou null. */
@@ -187,7 +195,45 @@ export function createChartPanel(callbacks: ChartPanelCallbacks): ChartPanel {
     drawAxes(state);
     drawCell(state);
     drawStack(state);
+    drawBracket(state);
     drawVector(state);
+  }
+
+  /**
+   * Os dois caminhos e o vão.
+   *
+   * O vão é traçado por último e mais grosso porque ele *é* a leitura: os
+   * caminhos existem para mostrar de onde ele veio. Se os dois campos comutam,
+   * as pontas coincidem e não sobra segmento nenhum — o quadrilátero fecha, e o
+   * fechamento é a informação.
+   */
+  function drawBracket(state: ChartPanelState): void {
+    if (!state.bracket) return;
+    const { caminhoXY, caminhoYX } = state.bracket;
+
+    const polilinha = (pontos: readonly Float64Array[], classe: string): void => {
+      if (pontos.length < 2) return;
+      const el = document.createElementNS(NS, 'polyline');
+      el.setAttribute(
+        'points',
+        pontos.map((p) => toPixel(state, Array.from(p)).join(',')).join(' '),
+      );
+      el.setAttribute('class', classe);
+      layers.vector.appendChild(el);
+    };
+
+    polilinha(caminhoXY, 'caminho-x');
+    polilinha(caminhoYX, 'caminho-y');
+
+    const fimXY = caminhoXY[caminhoXY.length - 1];
+    const fimYX = caminhoYX[caminhoYX.length - 1];
+    if (!fimXY || !fimYX) return;
+
+    const [ax, ay] = toPixel(state, Array.from(fimYX));
+    const [bx, by] = toPixel(state, Array.from(fimXY));
+    layers.vector.appendChild(line(ax, ay, bx, by, 'vao'));
+    layers.handles.appendChild(circle(ax, ay, 4.5, 'alca alca-u'));
+    layers.handles.appendChild(circle(bx, by, 4.5, 'alca alca-ponto'));
   }
 
   /** O paralelogramo gerado por u e v — a região cujas células se contam. */
@@ -435,6 +481,9 @@ export function createChartPanel(callbacks: ChartPanelCallbacks): ChartPanel {
   }
 
   function drawVector(state: ChartPanelState): void {
+    // No modo do colchete o conteúdo é o quadrilátero; v e u não participam da
+    // leitura e só competiriam com ele por atenção.
+    if (state.bracket) return;
     if (state.vectorU) drawSimpleArrow(state, state.vectorU);
     const start = Array.from(state.point);
     const end = [state.point[0]! + state.vector[0]!, state.point[1]! + state.vector[1]!];
