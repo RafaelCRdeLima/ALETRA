@@ -45,7 +45,15 @@ const ptBR = (n: number): string =>
 
 // ------------------------------------------------------------------- estado
 
-let scene: Scene = buildScene(EXAMPLES[0]!);
+/**
+ * `?limpo=1` esconde todo o cromo e deixa só a cena e o numeral — as condições
+ * que o PLAN.md especifica para o teste de 30 segundos da Etapa 1.
+ * `?exemplo=<id>` escolhe a superfície; sem ele, a esfera (D6).
+ */
+const params = new URLSearchParams(window.location.search);
+const MODO_LIMPO = params.get('limpo') === '1';
+
+let scene: Scene = buildScene(exampleById(params.get('exemplo') ?? ''));
 
 function buildScene(example: MetricExample): Scene {
   const components = [...example.components];
@@ -95,6 +103,12 @@ function embeddingMatches(): boolean {
 // -------------------------------------------------------------- painel 3D
 
 const stage = createStage(el('stage'), R);
+
+// No modo limpo o painel ocupa a tela inteira em vez de metade dela, então a
+// mesma câmera deixa sobrar margem. Aproximar transforma essa sobra em folha
+// maior — e o que o teste de 30 segundos mede é justamente se as folhas se
+// leem.
+if (MODO_LIMPO) stage.camera.position.multiplyScalar(0.82);
 const veil = veilTexture();
 const tangentGroup = new THREE.Group();
 const stackGroup = new THREE.Group();
@@ -121,8 +135,7 @@ let frame: TangentFrame = sphereFrame(R, scene.x);
 /** Enquanto false, o laço de animação não gasta frame com um canvas escondido. */
 let painelAtivo = true;
 
-function render3D(value: number): void {
-  const active = embeddingMatches();
+function render3D(value: number, active: boolean): void {
   painelAtivo = active;
   stage.renderer.domElement.style.display = active ? '' : 'none';
   for (const object of [tangentGroup, stackGroup, vectorGroup, pointHandle, tipHandle]) {
@@ -294,23 +307,29 @@ function update(): void {
   // a carta e o numeral mostrariam o valor de antes do recorte e os dois painéis
   // discordariam por um frame — justamente o que esta etapa existe para não fazer.
   clampVectorMetric();
-  if (embeddingMatches()) frame = sphereFrame(R, scene.x);
+  const comMergulho = embeddingMatches();
+  if (comMergulho) frame = sphereFrame(R, scene.x);
+  document.body.classList.toggle('sem-mergulho', !comMergulho);
 
   const value = evaluate(scene.omega, [scene.v]);
 
-  chartPanel.render({
-    bounds: scene.example.bounds,
-    names: scene.example.chart.symbols,
-    omega: scene.omega.components,
-    point: scene.x,
-    vector: scene.v,
-    mask: scene.mask,
-    maskResolution: MASK_RESOLUTION,
-    value,
-    whole: read(value).whole,
-  });
+  // No modo limpo a carta só aparece quando não há mergulho. Desenhar num painel
+  // escondido custaria uma reconstrução de SVG por arraste, à toa.
+  if (!MODO_LIMPO || !comMergulho) {
+    chartPanel.render({
+      bounds: scene.example.bounds,
+      names: scene.example.chart.symbols,
+      omega: scene.omega.components,
+      point: scene.x,
+      vector: scene.v,
+      mask: scene.mask,
+      maskResolution: MASK_RESOLUTION,
+      value,
+      whole: read(value).whole,
+    });
+  }
 
-  render3D(value);
+  render3D(value, comMergulho);
   paintNumeral(value);
 
   const erro = el<HTMLParagraphElement>('erro-metrica');
@@ -454,7 +473,9 @@ stage.renderer.domElement.addEventListener('pointercancel', endDrag);
 
 // -------------------------------------------------------------------- boot
 
+document.body.classList.toggle('limpo', MODO_LIMPO);
 buildSelector();
+el<HTMLSelectElement>('seletor').value = scene.example.id;
 buildMetricFields();
 bindOmega();
 syncOmegaControls();

@@ -228,13 +228,22 @@ text.tick.fim {
 
 /* --------------------------------------------------------------- controles */
 
+/*
+ * Grade, não flex-wrap.
+ *
+ * Com flex-wrap, a nota do exemplo (que tinha `margin-left: auto`) empurrava a
+ * própria quebra: abaixo de ~1500px ela pulava de linha e o bloco inteiro
+ * dobrava de altura, comendo os painéis. Num notebook de 1366×768 — que é o que
+ * boa parte da turma tem — isso custava um terço da cena. Com colunas
+ * declaradas, o que cede é a largura de cada bloco, não a altura do conjunto.
+ */
 #controles {
-  display: flex;
-  align-items: flex-start;
-  gap: 2rem;
-  padding: 0.9rem 1.5rem 1.1rem;
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 1.1fr) minmax(0, 1.4fr);
+  align-items: start;
+  gap: 1.5rem;
+  padding: 0.85rem 1.5rem 1rem;
   border-top: 1px solid var(--border);
-  flex-wrap: wrap;
 }
 
 /* Sem text-transform: uppercase transformaria "one-form ω" em "ONE-FORM Ω". */
@@ -324,6 +333,120 @@ input[type='range'] {
 
 .nota {
   color: var(--muted);
-  margin-left: auto;
-  align-self: flex-end;
+  align-self: end;
+}
+
+/* --------------------------------------------------- modo cena-limpa (?limpo=1) */
+
+/*
+ * Restaura as condições que o PLAN.md especifica para o teste de 30 segundos da
+ * Etapa 1: uma cena só, sem menu, sem editor, sem painel 2D sincronizado.
+ *
+ * Não é economia de pixels. A hipótese central do projeto é que a pilha se lê
+ * como contagem *sem explicação prévia*, e a Etapa 2 acrescentou seletor,
+ * campos de métrica, sliders e um segundo painel por cima dela. Um teste feito
+ * contra tudo isso não mede a hipótese — mede a interface que cresceu em volta.
+ * Se falhasse, não daria para saber qual das duas falhou.
+ *
+ * É também o modo embedding da Etapa 4 chegando cedo, e chega justificado por
+ * uma necessidade concreta em vez de por antecipação.
+ */
+body.limpo #seletor,
+body.limpo #controles,
+body.limpo .painel h2 {
+  display: none;
+}
+
+body.limpo #paineis {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+body.limpo #painel-carta {
+  display: none;
+}
+
+/* Sem mergulho definido, a carta É a cena — não há o que esconder. */
+body.limpo.sem-mergulho #painel-carta {
+  display: flex;
+}
+
+body.limpo.sem-mergulho #painel-mergulho {
+  display: none;
+}
+
+/* O número é a imagem: no modo limpo ele volta ao tamanho da Etapa 1. */
+body.limpo .numeral-value {
+  font-size: clamp(2.4rem, 5.5vw, 4rem);
+}
+
+body.limpo .numeral-gloss {
+  min-width: 14ch;
+}
+
+/* --------------------------------------------------------------- respostas */
+
+/* Telas de notebook: a nota desce inteira em vez de espremer os controles. */
+@media (max-width: 1180px) {
+  #controles {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+
+  .nota {
+    grid-column: 1 / -1;
+    max-width: none;
+  }
+}
+
+/* Estreito o bastante para dois painéis lado a lado não valerem a pena. */
+@media (max-width: 820px) {
+  #paineis {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
+
+  #controles {
+    grid-template-columns: 1fr;
+    gap: 0.9rem;
+  }
+
+  #topo {
+    flex-wrap: wrap;
+    gap: 0.7rem 1rem;
+  }
+
+  .numeral-value {
+    font-size: 1.9rem;
+  }
+}
+
+/*
+ * Telas baixas (1366×768 e parecidas): o cromo encolhe para o desenho não
+ * encolher. É a única dimensão em que dá para ceder sem perder conteúdo.
+ */
+@media (max-height: 800px) {
+  #topo {
+    padding: 0.55rem 1.5rem;
+  }
+
+  .numeral-value {
+    font-size: 1.9rem;
+  }
+
+  #controles {
+    padding: 0.6rem 1.5rem 0.7rem;
+    gap: 1rem;
+  }
+
+  .bloco-titulo {
+    margin-bottom: 0.35rem;
+  }
+
+  #controles label {
+    margin-bottom: 0.25rem;
+  }
+
+  .painel h2 {
+    padding: 0.35rem 1rem 0.1rem;
+  }
 }

@@ -70,5 +70,48 @@ const hachuraDegenerada = await page.locator('.camada-hachura rect').count();
 console.log('g=0 → células hachuradas:', hachuraDegenerada);
 await page.screenshot({ path: `${OUT}/etapa2-degenerada.png` });
 
-console.log('erros de console:', errors.length ? errors : 'nenhum');
+// Layout em telas reais. O 1366×768 é o que boa parte da turma tem, e é onde o
+// cromo antes comia um terço da cena. `sobra` mede a altura que os painéis
+// recebem: se ela desabar, o desenho encolheu para o controle caber.
+console.log('\n— layout —');
+for (const [w, h] of [
+  [1920, 1080],
+  [1600, 1000],
+  [1366, 768],
+  [1280, 800],
+  [820, 900],
+]) {
+  const p = await browser.newPage({ viewport: { width: w, height: h } });
+  await p.goto('http://localhost:5173', { waitUntil: 'networkidle' });
+  await p.waitForSelector('.chart-panel .folha');
+  const box = await p.locator('#paineis').boundingBox();
+  const rolagem = await p.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  );
+  console.log(
+    `${w}×${h}: painéis ${Math.round(box.height)}px (${Math.round((box.height / h) * 100)}% da tela)` +
+      `${rolagem ? '  ⚠ ROLAGEM HORIZONTAL' : ''}`,
+  );
+  await p.screenshot({ path: `${OUT}/layout-${w}x${h}.png` });
+  await p.close();
+}
+
+// Modo cena-limpa: as condições do teste de 30 segundos da Etapa 1.
+console.log('\n— modo cena-limpa —');
+{
+  const p = await browser.newPage({ viewport: { width: 1366, height: 768 } });
+  await p.goto('http://localhost:5173/?limpo=1', { waitUntil: 'networkidle' });
+  await p.waitForTimeout(1200);
+  const visivel = async (sel) => await p.locator(sel).isVisible();
+  console.log(
+    `cromo escondido: seletor=${await visivel('#seletor')} ` +
+      `controles=${await visivel('#controles')} carta=${await visivel('#painel-carta')}`,
+  );
+  console.log(`cena e numeral: canvas=${await visivel('#stage canvas')} ` +
+      `numeral="${(await p.textContent('#numeral-value'))?.trim()}"`);
+  await p.screenshot({ path: `${OUT}/limpo.png` });
+  await p.close();
+}
+
+console.log('\nerros de console:', errors.length ? errors : 'nenhum');
 await browser.close();

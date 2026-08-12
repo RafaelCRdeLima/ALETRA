@@ -32,6 +32,15 @@ toda a geometria é calculada na aba aberta, na máquina de quem abriu.
   uma mensagem que distingue singularidade de coordenada (o horizonte em r=2M,
   os polos da esfera) de singularidade de curvatura real (r=0).
 
+## Modo cena-limpa
+
+Acrescente `?limpo=1` ao endereço e todo o cromo desaparece: fica a superfície,
+o vetor, a pilha e o número. É a configuração para mostrar a alguém sem
+explicação prévia — nada na tela compete com a leitura. `?exemplo=hiperbolico`
+ou `?exemplo=schwarzschild` escolhem a superfície.
+
+[Ver o modo limpo →](https://rafaelcrdelima.github.io/ALETRA/?limpo=1)
+
 Ainda não: ♯/♭ lado a lado, ∧, d, colchete de Lie, transporte paralelo,
 geodésicas, cena compartilhável por URL. O caminho está em [PLAN.md](PLAN.md), e
 o porquê de cada escolha técnica em [DECISIONS.md](DECISIONS.md).
