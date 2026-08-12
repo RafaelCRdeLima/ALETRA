@@ -210,6 +210,28 @@ console.log('\n— ∧ e a contagem de células —');
   );
   await page.screenshot({ path: `${OUT}/duas-formas.png` });
 
+  // Os dois vetores têm de respeitar o mesmo teto de |·|_g. Recortar só v
+  // deixava u passar do disco tangente, e o disco é o desenho do plano tangente.
+  await page.selectOption('#seletor', 'esfera');
+  await page.waitForTimeout(500);
+  const comprimento = await page.evaluate(() => {
+    const ler = (sel) =>
+      [...document.querySelectorAll(sel)].map((i) => Number(i.value.replace(',', '.')));
+    return { v: ler('#campos-vetor input'), u: ler('#campos-u input') };
+  });
+  // θ do ponto inicial da esfera; o teste não move o ponto. g = diag(1, sin²θ).
+  const THETA = 1.15;
+  const TETO = 0.42; // maxVector do exemplo da esfera
+  const normaG = (c) => Math.sqrt(c[0] ** 2 + Math.sin(THETA) ** 2 * c[1] ** 2);
+  const teto = TETO;
+  console.log(
+    `  |v|_g = ${normaG(comprimento.v).toFixed(3)}, |u|_g = ${normaG(comprimento.u).toFixed(3)} ` +
+      `(teto ${teto})  ${normaG(comprimento.u) <= teto + 0.005 ? '✓ u recortado' : '✗ u ESCAPOU'}`,
+  );
+  await page.screenshot({ path: `${OUT}/duas-formas-esfera.png` });
+  await page.selectOption('#seletor', 'euclidiano');
+  await page.waitForTimeout(400);
+
   // Trocar ω por η inverte a orientação: mesmo módulo, sinal oposto.
   await page.locator('#omega-0').fill(String(e[0]));
   await page.locator('#omega-1').fill(String(e[1]));

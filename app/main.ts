@@ -201,7 +201,16 @@ const tipHandle = new THREE.Mesh(
     opacity: 0.6,
   }),
 );
-stage.scene.add(pointHandle, tipHandle);
+const uHandle = new THREE.Mesh(
+  new THREE.SphereGeometry(0.036, 24, 16),
+  new THREE.MeshStandardMaterial({
+    color: PALETTE.eta,
+    roughness: 0.35,
+    transparent: true,
+    opacity: 0.65,
+  }),
+);
+stage.scene.add(pointHandle, tipHandle, uHandle);
 
 let frame: TangentFrame = sphereFrame(R, scene.x);
 
@@ -235,7 +244,15 @@ function finitos(components: Float64Array): Float64Array {
 function render3D(value: number, active: boolean, vBemol: Form): void {
   painelAtivo = active;
   stage.renderer.domElement.style.display = active ? '' : 'none';
-  for (const object of [tangentGroup, stackGroup, vectorGroup, pointHandle, tipHandle]) {
+  for (const object of [
+    tangentGroup,
+    stackGroup,
+    bemolGroup,
+    vectorGroup,
+    pointHandle,
+    tipHandle,
+    uHandle,
+  ]) {
     object.visible = active;
   }
 
@@ -321,6 +338,8 @@ function render3D(value: number, active: boolean, vBemol: Form): void {
 
   pointHandle.position.copy(frame.point);
   tipHandle.position.copy(frame.point).add(toWorld(frame, scene.v));
+  uHandle.visible = duasFormas;
+  if (duasFormas) uHandle.position.copy(frame.point).add(toWorld(frame, scene.u));
 }
 
 const gScratch = new Float64Array(DIM * DIM);
@@ -334,16 +353,16 @@ const gScratch = new Float64Array(DIM * DIM);
  * na carta. |v|_g é a mesma quantidade nos dois painéis — e, como a métrica
  * induzida é o pullback do mergulho, é exatamente o comprimento da seta em ℝ³.
  */
-function clampVectorMetric(): void {
+function clampVectorMetric(vetor: Float64Array): void {
   scene.metric(scene.x, gScratch);
-  const lengthSq = normSquared(gScratch, scene.v, DIM);
+  const lengthSq = normSquared(gScratch, vetor, DIM);
   if (!Number.isFinite(lengthSq) || lengthSq <= 0) return;
 
   const length = Math.sqrt(lengthSq);
   const max = scene.example.maxVector;
   if (length > max) {
     const factor = max / length;
-    for (let i = 0; i < DIM; i++) scene.v[i] *= factor;
+    for (let i = 0; i < DIM; i++) vetor[i] *= factor;
   }
 }
 
@@ -484,7 +503,11 @@ function update(): void {
   // O recorte vem antes de ler o número: se acontecesse durante o desenho do 3D,
   // a carta e o numeral mostrariam o valor de antes do recorte e os dois painéis
   // discordariam por um frame — justamente o que esta etapa existe para não fazer.
-  clampVectorMetric();
+  // Os dois vetores, pela mesma régua. Recortar só v deixava u crescer além do
+  // disco tangente — e o disco *é* o desenho do plano tangente, então uma seta
+  // que passa dele lê-se como uma seta que saiu da superfície.
+  clampVectorMetric(scene.v);
+  clampVectorMetric(scene.u);
   const comMergulho = embeddingMatches();
   if (comMergulho) frame = sphereFrame(R, scene.x);
   document.body.classList.toggle('sem-mergulho', !comMergulho);
@@ -818,7 +841,7 @@ const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const tangentPlane = new THREE.Plane();
 const hit = new THREE.Vector3();
-let drag: 'point' | 'vector' | null = null;
+let drag: 'point' | 'vector' | 'vectorU' | null = null;
 
 function setPointer(event: PointerEvent): void {
   const rect = stage.renderer.domElement.getBoundingClientRect();
@@ -831,7 +854,9 @@ stage.renderer.domElement.addEventListener('pointerdown', (event) => {
   if (!embeddingMatches()) return;
   setPointer(event);
   if (raycaster.intersectObject(tipHandle, false).length > 0) drag = 'vector';
-  else if (raycaster.intersectObject(pointHandle, false).length > 0) drag = 'point';
+  else if (uHandle.visible && raycaster.intersectObject(uHandle, false).length > 0) {
+    drag = 'vectorU';
+  } else if (raycaster.intersectObject(pointHandle, false).length > 0) drag = 'point';
   else return;
 
   stage.controls.enabled = false;
@@ -851,8 +876,11 @@ stage.renderer.domElement.addEventListener('pointermove', (event) => {
     sphereChartOf([x, y, z], candidate);
     movePoint(candidate);
   } else {
+    // O arraste é resolvido contra o plano tangente, então qualquer dos dois
+    // vetores nasce dentro dele por construção — o recorte por |·|_g é o que
+    // impede de sair da vizinhança desenhada.
     if (!raycaster.ray.intersectPlane(tangentPlane, hit)) return;
-    fromWorld(frame, hit.sub(frame.point), scene.v);
+    fromWorld(frame, hit.sub(frame.point), drag === 'vectorU' ? scene.u : scene.v);
     update();
   }
 });
