@@ -64,7 +64,16 @@ body {
   width: auto;
 }
 
-#seletor {
+/*
+ * Os dois <select> do cabeçalho.
+ *
+ * `background` explícito e não `transparent`: o popup da lista é desenhado pelo
+ * sistema, e com fundo transparente ele cai no branco padrão do SO — o texto
+ * claro sumia nele, e as opções só apareciam depois de escolhidas, quando são
+ * pintadas sobre o fundo escuro da página.
+ */
+#seletor,
+#modo {
   background: var(--panel);
   color: var(--ink);
   border: 1px solid var(--border);
@@ -72,6 +81,22 @@ body {
   padding: 0.4rem 0.6rem;
   font-family: inherit;
   font-size: 0.85rem;
+  cursor: pointer;
+}
+
+#seletor:hover,
+#modo:hover {
+  border-color: var(--brand);
+}
+
+/*
+ * As <option> precisam das cores por conta própria: elas não herdam do <select>
+ * no popup nativo, que é uma superfície do sistema e não da página.
+ */
+#seletor option,
+#modo option {
+  background: var(--panel);
+  color: var(--ink);
 }
 
 /*
@@ -227,7 +252,6 @@ body.geodesica .bloco-vetor .morfose {
   accent-color: var(--brand);
 }
 
-#modo,
 #copiar {
   background: transparent;
   color: var(--muted);
@@ -240,15 +264,9 @@ body.geodesica .bloco-vetor .morfose {
   min-width: 8.5rem;
 }
 
-#modo:hover,
 #copiar:hover {
   color: var(--ink);
   border-color: var(--brand);
-}
-
-#modo[aria-pressed='true'] {
-  color: var(--ink);
-  border-color: #6fb3c9;
 }
 
 body.limpo #modo,
