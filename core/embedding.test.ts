@@ -80,6 +80,64 @@ describe('a volta da superfície para a carta', () => {
       }
     }
   });
+
+  it('e cai dentro dos limites da carta — é disso que o arraste depende', () => {
+    /*
+     * `movePoint` recorta ao retângulo depois de chamar `chartOf`. Se a volta
+     * caísse fora, o recorte grudaria o ponto na borda e o arraste travaria sem
+     * dizer por quê. A fita de Möbius é a primeira superfície onde isso podia
+     * dar errado de verdade: v se recupera projetando, e um sinal trocado ali
+     * jogaria o ponto para o outro lado da fita.
+     */
+    for (const exemplo of comMergulho) {
+      const embedding = embeddingById(exemplo.embedding)!;
+      const p = new Float64Array(3);
+      const volta = new Float64Array(DIM);
+
+      for (const x of amostrasDe(exemplo)) {
+        embedding.point(x, p);
+        embedding.chartOf(Array.from(p), volta);
+        for (let i = 0; i < DIM; i++) {
+          expect(volta[i], `${exemplo.label} coord ${i}`).toBeGreaterThanOrEqual(
+            exemplo.bounds.min[i]! - 1e-9,
+          );
+          expect(volta[i]).toBeLessThanOrEqual(exemplo.bounds.max[i]! + 1e-9);
+        }
+      }
+    }
+  });
+});
+
+describe('a fita de Möbius', () => {
+  const fita = embeddingById('moebius')!;
+  const em = (u: number, v: number): Float64Array => Float64Array.from([u, v]);
+
+  it('fecha com meia-torção: (π, v) é o mesmo ponto que (−π, −v)', () => {
+    const a = new Float64Array(3);
+    const b = new Float64Array(3);
+    for (const v of [-0.6, -0.2, 0.3, 0.7]) {
+      fita.point(em(Math.PI, v), a);
+      fita.point(em(-Math.PI, -v), b);
+      for (let k = 0; k < 3; k++) expect(a[k]).toBeCloseTo(b[k]!, 10);
+    }
+  });
+
+  it('e a normal chega invertida — é isto que a torna não-orientável', () => {
+    /*
+     * Um cilindro cola (π, v) com (−π, v) e a normal chega igual. A fita cola
+     * com v trocado de sinal, e daí sai e_v(−π,−v) = −e_v(π,v), logo a normal
+     * chega ao contrário: dar uma volta devolve o "para cima" apontando para
+     * baixo. É o teste que distingue uma fita de Möbius de uma tira torcida
+     * qualquer, e a única afirmação deste arquivo que a métrica não sabe fazer.
+     */
+    const n1 = new Float64Array(3);
+    const n2 = new Float64Array(3);
+    for (const v of [-0.5, 0.4]) {
+      embeddingNormal(fita, em(Math.PI, v), n1);
+      embeddingNormal(fita, em(-Math.PI, -v), n2);
+      for (let k = 0; k < 3; k++) expect(n1[k]).toBeCloseTo(-n2[k]!, 6);
+    }
+  });
 });
 
 describe('a normal', () => {
@@ -120,6 +178,20 @@ describe('a curvatura de cada superfície nova', () => {
     const cone = acharPorId('cone');
     for (const x of amostrasDe(cone)) {
       expect(Math.abs(curvaturaDe(cone, x))).toBeLessThan(1e-4);
+    }
+  });
+
+  it('a fita de Möbius é negativa em toda parte e nunca zero', () => {
+    // K = −R²/(4·g_uu²) — e ao contrário do cilindro e do cone, que também
+    // entortam no espaço, aqui a curvatura não some em lugar nenhum.
+    const fita = acharPorId('moebius');
+    for (const x of amostrasDe(fita)) {
+      const K = curvaturaDe(fita, x);
+      expect(K).toBeLessThan(0);
+      expect(K, `em (${x[0]!.toFixed(2)}, ${x[1]!.toFixed(2)})`).toBeCloseTo(
+        fita.closedCurvature!(x),
+        5,
+      );
     }
   });
 

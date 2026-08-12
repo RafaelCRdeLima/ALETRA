@@ -164,6 +164,30 @@ export const TORUS_EXAMPLE: MetricExample = {
     'nos círculos de cima e de baixo. Arraste o ponto pelo tubo e veja o sinal virar.',
 };
 
+export const MOEBIUS_EXAMPLE: MetricExample = {
+  id: 'moebius',
+  label: 'Fita de Möbius (R = 2)',
+  chart: chart(['u', 'v']),
+  components: ['(2 + v*cos(u/2))^2 + v^2/4', '0', '1'],
+  bounds: { min: [-Math.PI, -1], max: [Math.PI, 1] },
+  initialPoint: [0.6, 0.2],
+  initialVector: [0.18, 0.4],
+  initialOmega: [5, 3],
+  maxVector: 0.8,
+  // K = −R²/(4·g_uu²), e com R = 2 o numerador cancela o 4.
+  closedCurvature: (x) => {
+    const guu = (2 + x[1]! * Math.cos(x[0]! / 2)) ** 2 + x[1]! ** 2 / 4;
+    return -1 / (guu * guu);
+  },
+  embedding: 'moebius',
+  // A nota viaja na URL, e por isso é curta: a versão longa desta explicação
+  // está no comentário de `moebiusEmbedding`, onde não custa endereço nenhum.
+  note:
+    'K < 0 em toda parte, nunca zero. Mas o que a fita tem de próprio a carta ' +
+    'não mostra: o retângulo ao lado é orientável e a fita não é. Só o painel ' +
+    'de ℝ³ sabe da torção.',
+};
+
 export const HYPERBOLIC_EXAMPLE: MetricExample = {
   id: 'hiperbolico',
   label: 'Plano hiperbólico (semiplano superior)',
@@ -202,6 +226,7 @@ export const EXAMPLES: readonly MetricExample[] = [
   TORUS_EXAMPLE,
   CYLINDER_EXAMPLE,
   CONE_EXAMPLE,
+  MOEBIUS_EXAMPLE,
   EUCLIDEAN_EXAMPLE,
   HYPERBOLIC_EXAMPLE,
   SCHWARZSCHILD_EXAMPLE,

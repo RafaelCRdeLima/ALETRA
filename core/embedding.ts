@@ -195,11 +195,66 @@ export function torusEmbedding(R = 2, a = 0.8): Embedding {
   };
 }
 
+/**
+ * Fita de Möbius de raio R, em (u, v) — u dá a volta, v atravessa a fita.
+ *
+ * A carta é ortogonal e a métrica sai limpa: g_uu = (R + v·cos(u/2))² + v²/4,
+ * g_uv = 0 e g_vv = 1, porque v já é comprimento de arco através da fita. A
+ * curvatura tem forma fechada, K = −R²/(4·g_uu²): **negativa em toda parte e
+ * nunca zero**, ao contrário do cilindro e do cone, que também entortam no
+ * espaço e mesmo assim são planos.
+ *
+ * ## O que esta superfície não tem como contar pela carta
+ *
+ * A fita é não-orientável, e isso **não está na métrica**. O g acima vive num
+ * retângulo [−π,π]×[−w,w], que é um disco: orientável, contrátil, sem nada de
+ * especial. O que faz a fita ser fita é a colagem das duas bordas — (π, v) é o
+ * mesmo ponto que (−π, −v) — e `ChartBounds` é um retângulo, sem lugar onde
+ * guardar colagem nenhuma.
+ *
+ * Não é um defeito a consertar aqui. É a coisa mais interessante que a
+ * superfície tem a dizer, e o painel de ℝ³ a diz sozinho, porque ali a fita se
+ * vê virando do avesso. O produto já vive de os dois painéis discordarem; a
+ * novidade é o tipo de discordância. Nas outras superfícies os dois desenham a
+ * mesma informação de jeitos diferentes. Aqui um dos dois sabe algo que o outro
+ * não tem como saber.
+ *
+ * A consequência prática é que o arraste para na costura em vez de dar a volta:
+ * `movePoint` recorta aos limites, como em toda superfície. Dar a volta pediria
+ * modelar a colagem em `ChartBounds` e propagá-la por máscara, curvas, laço de
+ * holonomia e geodésica — bem além de acrescentar uma superfície, e mexendo em
+ * tudo que hoje é retângulo.
+ */
+export function moebiusEmbedding(R = 2): Embedding {
+  return {
+    id: 'moebius',
+    point: (x, out) => {
+      const meia = x[0]! / 2;
+      const raio = R + x[1]! * Math.cos(meia);
+      out[0] = raio * Math.cos(x[0]!);
+      out[1] = raio * Math.sin(x[0]!);
+      out[2] = x[1]! * Math.sin(meia);
+    },
+    chartOf: (p, out) => {
+      const u = Math.atan2(p[1]!, p[0]!);
+      const meia = u / 2;
+      /*
+       * ρ − R = v·cos(u/2) e p_z = v·sen(u/2). Projetar nos dois recupera v de
+       * uma vez, sem dividir por um cosseno que zera na metade da volta — que é
+       * onde a fita está de lado e a divisão explodiria.
+       */
+      out[0] = u;
+      out[1] = (Math.hypot(p[0]!, p[1]!) - R) * Math.cos(meia) + p[2]! * Math.sin(meia);
+    },
+  };
+}
+
 const CATALOGO: Readonly<Record<string, Embedding>> = {
   esfera: sphereEmbedding(1),
   cilindro: cylinderEmbedding(1),
   cone: coneEmbedding(0.6),
   toro: torusEmbedding(2, 0.8),
+  moebius: moebiusEmbedding(2),
 };
 
 export type EmbeddingId = keyof typeof CATALOGO;

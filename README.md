@@ -23,13 +23,16 @@ toda a geometria é calculada na aba aberta, na máquina de quem abriu.
 
 ## O que já funciona
 
-- **Sete superfícies**: esfera, toro, cilindro, cone, plano euclidiano, plano
-  hiperbólico e a fatia equatorial de Schwarzschild — ou qualquer métrica que
-  você digitar nos campos `g_ij`.
+- **Oito superfícies**: esfera, toro, cilindro, cone, fita de Möbius, plano
+  euclidiano, plano hiperbólico e a fatia equatorial de Schwarzschild — ou
+  qualquer métrica que você digitar nos campos `g_ij`.
 - **Os três sinais de curvatura**, alcançáveis arrastando: o cilindro e o cone
   são planos por dentro embora entortem no espaço; o toro tem K > 0 por fora,
   K < 0 por dentro e K = 0 nos círculos de cima e de baixo, tudo na mesma
   superfície.
+- **Uma superfície que a carta não consegue descrever**: a fita de Möbius. A
+  métrica dela vive num retângulo, que é orientável; a fita não é. A torção
+  está na colagem das bordas, e só o painel de ℝ³ sabe dela.
 - **Dois painéis sincronizados**: a carta de coordenadas e, quando existe, o
   mergulho em ℝ³. Arrastar num move o outro. As duas imagens discordam — o
   número não.

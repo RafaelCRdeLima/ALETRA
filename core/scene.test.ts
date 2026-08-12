@@ -87,7 +87,7 @@ describe('ida e volta', () => {
   });
 
   it('aceita todas as superfícies do catálogo', () => {
-    for (const id of ['esfera', 'cilindro', 'cone', 'toro']) {
+    for (const id of ['esfera', 'cilindro', 'cone', 'toro', 'moebius']) {
       expect(sceneFromText(JSON.stringify({ ...BASE, mergulho: id })).mergulho).toBe(id);
     }
   });

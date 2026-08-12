@@ -414,6 +414,19 @@ código de desenho; acrescentar a quinta também não vai custar.
 | Toro | $(u,v)$ | os **três sinais** de $K$ na mesma superfície, alcançáveis arrastando |
 | Cilindro | $(\varphi,z)$ | $K=0$: entortar no espaço não é ter curvatura |
 | Cone | $(r,\varphi)$ | $K=0$ em toda parte e mesmo assim não é o plano — o déficit angular está todo no vértice |
+| Fita de Möbius | $(u,v)$ | $K<0$ em toda parte, nunca zero — e uma propriedade que **a carta não tem como registrar** |
+
+**A fita de Möbius é um caso à parte, e por isso vale a pena.** As outras sete
+superfícies são dois desenhos da mesma informação: a carta e o mergulho dizem a
+mesma coisa de jeitos diferentes, e o número no alto não muda. Na fita, um dos
+dois painéis sabe algo que o outro não tem como saber. A métrica
+$g_{uu}=(R+v\cos(u/2))^2+v^2/4$, $g_{vv}=1$ vive num retângulo
+$[-\pi,\pi]\times[-w,w]$, que é orientável e contrátil; o que faz a fita ser
+fita é a colagem $(\pi,v)\sim(-\pi,-v)$, e `ChartBounds` é um retângulo, sem
+lugar onde guardar colagem. Não é defeito a consertar: é a coisa mais
+interessante que a superfície tem a dizer, e o painel de ℝ³ a diz sozinho. O
+teste que a fixa compara ponto e normal nas duas bordas — mesmo ponto, normal
+invertida —, que é exatamente o que distingue uma fita de Möbius de um cilindro.
 
 **Critério de verificação, e é o que importa aqui:** a métrica continua **digitada** — o aluno tem
 de vê-la e mexer nela, então derivá-la do mergulho em silêncio trocaria o objeto de estudo por uma

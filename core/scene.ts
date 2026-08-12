@@ -83,7 +83,13 @@ const MODOS_CONHECIDOS = [
 type ModoCena = (typeof MODOS_CONHECIDOS)[number];
 
 /** Os mergulhos que o produto sabe desenhar — o catálogo de `embedding.ts`. */
-const MERGULHOS_CONHECIDOS: readonly string[] = ['esfera', 'cilindro', 'cone', 'toro'];
+const MERGULHOS_CONHECIDOS: readonly string[] = [
+  'esfera',
+  'cilindro',
+  'cone',
+  'toro',
+  'moebius',
+];
 
 const ehModo = (valor: unknown): valor is ModoCena =>
   typeof valor === 'string' && (MODOS_CONHECIDOS as readonly string[]).includes(valor);

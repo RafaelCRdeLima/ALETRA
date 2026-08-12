@@ -53,13 +53,42 @@ export function createStage(container: HTMLElement, R: number): Stage {
   controls.minDistance = R * 1.6;
   controls.maxDistance = R * 8;
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  /*
+   * As luzes seguem o mesmo "para cima" da câmera. Estavam posicionadas para o
+   * Y padrão do Three, e quando o eixo virou Z a key passou a iluminar de lado
+   * em vez de por cima. Esfera, toro e cone perdoaram — são volumosos e pegam
+   * luz de qualquer direção —, mas uma fita deitada quase no plano XY ficou
+   * preta. Superfície fina é o caso que revela onde a luz está de fato.
+   */
+  /*
+   * O ambiente é o piso de contraste contra o fundo, não um efeito.
+   *
+   * A cor da superfície é cinza a 18% (ela tem de recuar atrás da pilha
+   * laranja), então mesmo iluminada em cheio ela chega perto de rgb(50). Com o
+   * ambiente baixo demais, a parte menos iluminada caía em rgb(26) contra um
+   * fundo rgb(20) — indistinguível. Em corpos volumosos isso passa; numa fita,
+   * que apresenta quase tudo em ângulo rasante, some a superfície inteira.
+   */
+  scene.add(new THREE.AmbientLight(0xffffff, 0.85));
   const key = new THREE.DirectionalLight(0xffffff, 1.6);
-  key.position.set(4, 6, 5);
+  key.position.set(3.5, 4, 7);
   scene.add(key);
-  const rim = new THREE.DirectionalLight(0xffd9c8, 0.5);
-  rim.position.set(-5, -2, -4);
-  scene.add(rim);
+  /*
+   * O preenchimento fica exatamente oposto à key, e não numa direção qualquer.
+   *
+   * `DoubleSide` vira a normal nas faces de trás, então toda superfície visível
+   * é sombreada com a normal do lado de cá — mas isso não basta numa fita, que
+   * é fina e apresenta pedaços em ângulo rasante ao mesmo tempo. Com as duas
+   * luzes opostas, qualquer orientação de superfície pega uma das duas, e a
+   * fita de Möbius deixa de ter metade ilegível.
+   *
+   * (Chegamos a atribuir essa metade escura à não-orientabilidade. Não era:
+   * medida num arnês isolado, com a luz junto da câmera, a fita acende inteira
+   * e por igual, igualzinho à esfera. Era só onde as luzes estavam.)
+   */
+  const fill = new THREE.DirectionalLight(0xffd9c8, 0.7);
+  fill.position.set(-3.5, -4, -7);
+  scene.add(fill);
 
   /*
    * A superfície nasce vazia e recebe geometria conforme o exemplo.
@@ -84,7 +113,7 @@ export function createStage(container: HTMLElement, R: number): Stage {
 
   const grid = new THREE.LineSegments(
     new THREE.BufferGeometry(),
-    new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.12 }),
+    new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.18 }),
   );
   scene.add(grid);
 
