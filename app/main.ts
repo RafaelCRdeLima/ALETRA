@@ -15,7 +15,13 @@ import { cellEdges, cellEdgesFromDensity, wedge } from '../core/wedge';
 import { differential0, differential1, type FormField } from '../core/exterior';
 import { flowPath } from '../core/flow';
 import { lieBracket } from '../core/lie';
-import { enclosedArea, holonomy, rectangleLoop } from '../core/transport';
+import {
+  enclosedArea,
+  holonomy,
+  rectangleLoop,
+  sampleTransport,
+  type TransporteAmostrado,
+} from '../core/transport';
 import { gaussianCurvature } from '../core/curvature';
 import { geodesicDeviation, traceGeodesic, type Geodesica } from '../core/geodesic';
 import { compileFormField, compileScalar } from '../core/metric-expr';
@@ -26,8 +32,8 @@ import { read } from '../core/reading';
 import { sphereChartOf, sphereEmbed } from '../core/sphere';
 import { createChartPanel } from '../render/svg/chart-panel';
 import { fromWorld, sphereFrame, toWorld, type TangentFrame } from '../render/three/frame';
-import { disposeChildren } from '../render/three/primitives';
-import { basico } from '../render/three/materials';
+import { criarSetaMovel, disposeChildren } from '../render/three/primitives';
+import { basico, iluminado } from '../render/three/materials';
 import { createStage, PALETTE } from '../render/three/scene';
 import { buildCurve } from '../render/three/curve';
 import { buildStack } from '../render/three/stack';
@@ -613,7 +619,11 @@ function render3D(d: Cena3D): void {
       colorWhole: PALETTE.vector,
       colorFraction: PALETTE.fraction,
       opacity: opa.seta,
-      showFraction: !comCelulas,
+      // Só a leitura de 1-form conta folhas *ao longo de v*. Nas outras o número
+      // é um ângulo, uma circulação ou um comprimento, e marcar um corte no meio
+      // do vetor sugeriria uma leitura que não existe — foi o que a holonomia
+      // fazia, pintando a ponta de v com a fração de um ângulo.
+      showFraction: modo === 'uma',
     }),
   );
   if (comCelulas) {
@@ -645,6 +655,7 @@ function render3D(d: Cena3D): void {
 
   pointHandle.position.copy(frame.point);
   tipHandle.position.copy(frame.point).add(toWorld(frame, scene.v));
+  if (modo !== 'holonomia') setaDeslizante.objeto.visible = false;
   uHandle.visible = comCelulas;
   if (comCelulas) uHandle.position.copy(frame.point).add(toWorld(frame, scene.u));
 }
@@ -703,6 +714,70 @@ const basisArrows = [0, 1].map(() => {
 tangentGroup.add(tangentDisc, ...basisArrows);
 
 const EIXO_Z = new THREE.Vector3(0, 0, 1);
+
+/**
+ * A seta que desliza pelo laço, mostrando o transporte como processo.
+ *
+ * Pedida pelos alunos depois de ver a holonomia estática: com o vetor que parte
+ * e o que volta desenhados lado a lado, o giro é a *diferença* entre duas setas;
+ * com a seta percorrendo o laço, ele vira o processo que produz essa diferença.
+ * A matemática é a mesma — o que muda é o aluno ver onde o giro acontece.
+ *
+ * Objeto único, criado uma vez e movido: refazer a seta a cada quadro custaria
+ * alocação e recompilação de shader sessenta vezes por segundo, que é o erro que
+ * a auditoria já pegou uma vez.
+ */
+const setaDeslizante = criarSetaMovel(
+  iluminado(PALETTE.fraction, 1, 0.45),
+  0.016,
+  0.075,
+  0.042,
+);
+setaDeslizante.objeto.visible = false;
+stage.scene.add(setaDeslizante.objeto);
+
+let amostrasDoGiro: TransporteAmostrado | null = null;
+let animarTransporte = true;
+
+/** Segundos para percorrer o laço, e para segurar no fim antes de recomeçar. */
+const VOLTA_S = 7;
+const PAUSA_S = 1.6;
+
+/**
+ * Move a seta ao longo das amostras, conforme o relógio.
+ *
+ * Roda no laço de animação e não em `update()`: o transporte já está calculado,
+ * e mover um objeto que existe é uma matriz por quadro. Recalcular tudo a cada
+ * quadro seria refazer sessenta vezes por segundo uma conta que não mudou.
+ */
+function moverSetaDeslizante(): void {
+  const amostras = amostrasDoGiro;
+  const ligada = animarTransporte && modo === 'holonomia' && amostras !== null;
+  setaDeslizante.objeto.visible = ligada;
+  if (!ligada || !amostras) return;
+
+  const ciclo = VOLTA_S + PAUSA_S;
+  const t = (performance.now() / 1000) % ciclo;
+  const fase = Math.min(1, t / VOLTA_S);
+
+  const indice = Math.min(
+    amostras.pontos.length - 1,
+    Math.round(fase * (amostras.pontos.length - 1)),
+  );
+  const ponto = amostras.pontos[indice]!;
+  const vetor = amostras.vetores[indice]!;
+
+  const quadro = sphereFrame(R, ponto);
+  const mundo = toWorld(quadro, vetor, new THREE.Vector3());
+  const comprimento = mundo.length();
+  if (comprimento < 1e-6) return;
+
+  setaDeslizante.objeto.visible = true;
+  setaDeslizante.apontar(quadro.point, mundo.clone().divideScalar(comprimento), comprimento);
+
+  const rotulo = el('fase-transporte');
+  rotulo.textContent = fase >= 1 ? 'chegou — e voltou girado' : `${Math.round(fase * 100)}% do laço`;
+}
 
 function atualizarPlanoTangente(f: TangentFrame): void {
   tangentDisc.quaternion.setFromUnitVectors(EIXO_Z, f.normal);
@@ -901,6 +976,8 @@ interface Giro {
   /** Densidade da 2-form de curvatura no centro do laço: K·√det g. */
   readonly densidade: number;
   readonly desvioDeNorma: number;
+  /** O transporte passo a passo, para a seta poder deslizar. */
+  readonly amostras: TransporteAmostrado;
 }
 
 /**
@@ -938,6 +1015,7 @@ function calcularGiro(): Giro | null {
     area: enclosedArea(scene.metric, scene.x, oposto, DIM, 32),
     densidade: det > 0 && Number.isFinite(K) ? K * Math.sqrt(det) : 0,
     desvioDeNorma: Math.abs(h.normaFinal - h.normaInicial),
+    amostras: sampleTransport(scene.christoffel, caminho, scene.v, DIM, 18),
   };
 }
 
@@ -1168,6 +1246,7 @@ function update(): void {
     giro,
     traco,
   });
+  amostrasDoGiro = giro?.amostras ?? null;
   paintNumeral(value, colchete, giro, traco);
   paintBemol(vBemol);
   syncVectorFields();
@@ -1499,6 +1578,13 @@ function bindModo(): void {
     }
   }
 
+  const animar = el<HTMLInputElement>('animar-transporte');
+  animar.addEventListener('change', () => {
+    animarTransporte = animar.checked;
+    if (!animarTransporte) el('fase-transporte').textContent = '';
+    update();
+  });
+
   const rangeAlcance = el<HTMLInputElement>('alcance');
   rangeAlcance.addEventListener('input', () => {
     alcance = Number(rangeAlcance.value);
@@ -1686,6 +1772,7 @@ new ResizeObserver(() => update()).observe(el('carta-corpo'));
 
 stage.renderer.setAnimationLoop(() => {
   if (!painelAtivo) return;
+  moverSetaDeslizante();
   stage.controls.update();
   stage.renderer.render(stage.scene, stage.camera);
 });

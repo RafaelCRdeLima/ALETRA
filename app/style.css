@@ -82,14 +82,16 @@ body {
 .so-duas-formas,
 .so-derivada,
 .so-colchete,
-.so-geodesica {
+.so-geodesica,
+.so-holonomia {
   display: none;
 }
 
 body.duas-formas .so-duas-formas,
 body.derivada .so-derivada,
 body.colchete .so-colchete,
-body.geodesica .so-geodesica {
+body.geodesica .so-geodesica,
+body.holonomia .so-holonomia {
   display: block;
 }
 

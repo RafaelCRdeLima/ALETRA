@@ -18,7 +18,13 @@ import {
   type MetricExample,
 } from './examples';
 import { compileMetric } from './metric-expr';
-import { enclosedArea, holonomy, rectangleLoop, transportAlongSegment } from './transport';
+import {
+  enclosedArea,
+  holonomy,
+  rectangleLoop,
+  sampleTransport,
+  transportAlongSegment,
+} from './transport';
 import { normSquared } from './metric';
 import { sphereChristoffel } from './sphere';
 
@@ -161,6 +167,49 @@ describe('invariantes do transporte', () => {
     const volta = transportAlongSegment(christoffel, b, a, ida, DIM, 40);
     expect(volta[0]).toBeCloseTo(V[0]!, 7);
     expect(volta[1]).toBeCloseTo(V[1]!, 7);
+  });
+});
+
+describe('o transporte amostrado — o que a animação consome', () => {
+  const { metric, christoffel } = motor(SPHERE_EXAMPLE);
+  const laco = rectangleLoop(Float64Array.from([1.0, 0.2]), Float64Array.from([1.8, 1.2]));
+  const V0 = Float64Array.from([1, 0]);
+
+  it('acaba no mesmo vetor que o transporte direto', () => {
+    const amostras = sampleTransport(christoffel, laco, V0, DIM, 24);
+    const direto = holonomy(metric, christoffel, laco, V0, DIM, 60).final;
+    const fim = amostras.vetores[amostras.vetores.length - 1]!;
+    expect(fim[0]).toBeCloseTo(direto[0]!, 3);
+    expect(fim[1]).toBeCloseTo(direto[1]!, 3);
+  });
+
+  it('cada amostra tem um ponto e um vetor', () => {
+    const a = sampleTransport(christoffel, laco, V0, DIM, 10);
+    expect(a.pontos).toHaveLength(a.vetores.length);
+    expect(a.pontos).toHaveLength(1 + 10 * (laco.length - 1));
+  });
+
+  it('|V|_g é preservado ao longo de toda a animação, não só no fim', () => {
+    // Se a norma oscilasse no meio, a seta deslizando encolheria e cresceria na
+    // tela, ensinando que transporte paralelo mexe no comprimento. Não mexe.
+    const a = sampleTransport(christoffel, laco, V0, DIM, 20);
+    const g = new Float64Array(DIM * DIM);
+    metric(a.pontos[0]!, g);
+    const inicial = Math.sqrt(normSquared(g, a.vetores[0]!, DIM));
+
+    for (let i = 0; i < a.pontos.length; i++) {
+      metric(a.pontos[i]!, g);
+      const norma = Math.sqrt(normSquared(g, a.vetores[i]!, DIM));
+      expect(norma).toBeCloseTo(inicial, 4);
+    }
+  });
+
+  it('o primeiro ponto é o começo do laço e o último é o fim', () => {
+    const a = sampleTransport(christoffel, laco, V0, DIM, 8);
+    expect(Array.from(a.pontos[0]!)).toEqual(Array.from(laco[0]!));
+    const ultimo = a.pontos[a.pontos.length - 1]!;
+    expect(ultimo[0]).toBeCloseTo(laco[laco.length - 1]![0]!, 12);
+    expect(ultimo[1]).toBeCloseTo(laco[laco.length - 1]![1]!, 12);
   });
 });
 

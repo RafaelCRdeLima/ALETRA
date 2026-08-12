@@ -93,6 +93,62 @@ export function transportAlongSegment(
   return atual;
 }
 
+/**
+ * O transporte amostrado: onde o vetor está e quanto ele vale, passo a passo.
+ *
+ * `transportAlongPath` devolve o vetor só nos vértices, que basta para medir a
+ * holonomia e não basta para *mostrá-la acontecendo*. Com o caminho amostrado, o
+ * vetor pode deslizar pelo laço na tela e o giro deixa de ser a diferença entre
+ * duas setas para virar o processo que produz essa diferença — que foi o que os
+ * alunos pediram depois de ver a versão estática.
+ *
+ * O passo de integração é o mesmo de `transportAlongSegment`; o que muda é
+ * guardar o estado em vez de descartá-lo.
+ */
+export interface TransporteAmostrado {
+  readonly pontos: Float64Array[];
+  readonly vetores: Float64Array[];
+}
+
+export function sampleTransport(
+  christoffel: ChristoffelFn,
+  caminho: readonly Float64Array[],
+  V0: Float64Array,
+  dim: number,
+  porTrecho = 24,
+): TransporteAmostrado {
+  const pontos: Float64Array[] = [Float64Array.from(caminho[0] ?? new Float64Array(dim))];
+  const vetores: Float64Array[] = [Float64Array.from(V0)];
+
+  for (let i = 0; i + 1 < caminho.length; i++) {
+    const de = caminho[i]!;
+    const para = caminho[i + 1]!;
+
+    for (let k = 1; k <= porTrecho; k++) {
+      const t = k / porTrecho;
+      const meio = new Float64Array(dim);
+      for (let d = 0; d < dim; d++) meio[d] = de[d]! + t * (para[d]! - de[d]!);
+
+      // Cada amostra é transportada a partir da anterior, ao longo do pedaço de
+      // segmento entre as duas — não recomeçando do vértice, que acumularia o
+      // mesmo trecho várias vezes.
+      const anteriorPonto = pontos[pontos.length - 1]!;
+      vetores.push(
+        transportAlongSegment(
+          christoffel,
+          anteriorPonto,
+          meio,
+          vetores[vetores.length - 1]!,
+          dim,
+          2,
+        ),
+      );
+      pontos.push(meio);
+    }
+  }
+  return { pontos, vetores };
+}
+
 /** Transporta ao longo de uma poligonal, devolvendo o vetor em cada vértice. */
 export function transportAlongPath(
   christoffel: ChristoffelFn,
