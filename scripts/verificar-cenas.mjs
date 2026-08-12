@@ -36,6 +36,58 @@ for (const id of ['esfera', 'hiperbolico', 'schwarzschild']) {
   console.log(`${id}: ⟨ω,v⟩=${numeral} folhas=${folhas} células-hachuradas=${hachura}`);
 }
 
+// Componentes de v: têm de acompanhar o arraste e, ao contrário, mover o vetor
+// quando digitadas. Se um dos dois lados quebrar, o campo vira enfeite.
+console.log('\n— componentes do vetor —');
+{
+  await page.selectOption('#seletor', 'esfera');
+  await page.waitForTimeout(500);
+  const campos = page.locator('#campos-vetor input');
+  const ler = async () => [await campos.nth(0).inputValue(), await campos.nth(1).inputValue()];
+  const antes = await ler();
+
+  // Arrasta a ponta para o lado oposto do ponto base: o vetor inverte e os
+  // componentes trocam de sinal. Um deslocamento qualquer não serviria — na
+  // esfera v já está no limite de |v|_g, então arrastar só o gira, e arrastar
+  // quase na direção dele não mudaria nada visível.
+  const base = await page.locator('.alca-ponto').boundingBox();
+  const ponta = await page.locator('.alca-ponta').boundingBox();
+  const bx = base.x + base.width / 2;
+  const by = base.y + base.height / 2;
+  const tx = ponta.x + ponta.width / 2;
+  const ty = ponta.y + ponta.height / 2;
+
+  await page.mouse.move(tx, ty);
+  await page.mouse.down();
+  await page.mouse.move(bx - (tx - bx), by - (ty - by), { steps: 12 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  const depois = await ler();
+  console.log(
+    `arraste: v⁰ ${antes[0]}→${depois[0]}, v¹ ${antes[1]}→${depois[1]}` +
+      `  ${antes[0] !== depois[0] || antes[1] !== depois[1] ? '✓ acompanhou' : '✗ NÃO ACOMPANHOU'}`,
+  );
+
+  // A conferência lê ω da própria página: número fixo aqui só serviria para
+  // dar falso negativo no dia em que o exemplo mudasse de valores iniciais.
+  await campos.nth(0).fill('0,20');
+  await campos.nth(1).fill('0,40');
+  await page.locator('#seletor').focus();
+  await page.waitForTimeout(400);
+
+  const num = (t) => Number(t.replace('.', '').replace(',', '.'));
+  const w0 = num(await page.locator('#omega-0-out').textContent());
+  const w1 = num(await page.locator('#omega-1-out').textContent());
+  const mostrado = num((await page.textContent('#numeral-value')).trim());
+  const esperado = w0 * 0.2 + w1 * 0.4;
+  console.log(
+    `digitado v=(0,20; 0,40) com ω=(${w0}; ${w1}) → mostrado ${mostrado}, ` +
+      `esperado ${esperado.toFixed(2)}  ${Math.abs(mostrado - esperado) < 0.01 ? '✓' : '✗ DIVERGE'}`,
+  );
+}
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForSelector('.chart-panel .folha');
+
 // D7 ao vivo: arrastar o ponto contra o polo tem de recusar o movimento e dizer
 // que ali a carta falha — não que a geometria falha.
 await page.selectOption('#seletor', 'esfera');

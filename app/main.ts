@@ -331,6 +331,7 @@ function update(): void {
 
   render3D(value, comMergulho);
   paintNumeral(value);
+  syncVectorFields();
 
   const erro = el<HTMLParagraphElement>('erro-metrica');
   erro.hidden = scene.parseError === null;
@@ -358,6 +359,7 @@ function buildSelector(): void {
   select.addEventListener('change', () => {
     scene = buildScene(exampleById(select.value));
     buildMetricFields();
+    buildVectorFields();
     syncOmegaControls();
     update();
   });
@@ -390,6 +392,67 @@ function buildMetricFields(): void {
       return wrapper;
     }),
   );
+}
+
+/**
+ * Componentes de v, editáveis e vivos durante o arraste.
+ *
+ * Pedido pelos alunos que testaram, e o pedido apontava um problema real: ω
+ * aparecia com números e v só como gesto. A assimetria sugeria que a one-form é
+ * *dado* e o vetor é *interação*, quando os dois são objetos igualmente
+ * concretos — e a conta que o produto inteiro exibe, ω_a v^a, precisa dos dois
+ * lados visíveis para ser conferível.
+ *
+ * Índice em cima, não embaixo: v^θ contra ω_θ. A posição do índice é o que
+ * distingue vetor de covetor, e é exatamente a distinção que a Etapa 3 vai
+ * animar. Escrever os dois com subscrito seria mais fácil e ensinaria errado.
+ *
+ * Campo de texto e não `type="number"`: o resto da interface mostra "0,28" com
+ * vírgula, e um input numérico recusa vírgula. A leitura aceita as duas.
+ */
+function buildVectorFields(): void {
+  const host = el('campos-vetor');
+  host.replaceChildren(
+    ...Array.from({ length: DIM }, (_, index) => {
+      const wrapper = document.createElement('label');
+      wrapper.className = 'campo campo-vetor';
+
+      const label = document.createElement('span');
+      const sup = document.createElement('sup');
+      sup.textContent = scene.example.chart.symbols[index] ?? String(index);
+      label.append('v', sup, ' =');
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.inputMode = 'decimal';
+      input.spellcheck = false;
+      input.dataset['componente'] = String(index);
+
+      input.addEventListener('input', () => {
+        const valor = Number(input.value.replace(',', '.').trim());
+        if (!Number.isFinite(valor)) return;
+        scene.v[index] = valor;
+        update();
+      });
+      // Ao sair do campo, mostrar o que o estado de fato guarda: um valor grande
+      // demais foi recortado por |v|_g e o campo precisa contar isso.
+      input.addEventListener('blur', syncVectorFields);
+
+      wrapper.append(label, input);
+      return wrapper;
+    }),
+  );
+  syncVectorFields();
+}
+
+function syncVectorFields(): void {
+  const campos = document.querySelectorAll<HTMLInputElement>('#campos-vetor input');
+  for (const input of campos) {
+    // Nunca reescrever o campo que está sendo digitado — brigaria com o cursor.
+    if (input === document.activeElement) continue;
+    const index = Number(input.dataset['componente']);
+    input.value = ptBR(scene.v[index] ?? 0);
+  }
 }
 
 function syncOmegaControls(): void {
@@ -477,6 +540,7 @@ document.body.classList.toggle('limpo', MODO_LIMPO);
 buildSelector();
 el<HTMLSelectElement>('seletor').value = scene.example.id;
 buildMetricFields();
+buildVectorFields();
 bindOmega();
 syncOmegaControls();
 update();
