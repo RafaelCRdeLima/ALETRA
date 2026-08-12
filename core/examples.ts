@@ -38,8 +38,12 @@ export interface MetricExample {
   readonly maxVector: number;
   /** Curvatura gaussiana em forma fechada, quando conhecida (D8). */
   readonly closedCurvature: (x: Float64Array) => number;
-  /** Só a esfera tem mergulho em ℝ³ nesta etapa; as outras vivem só no painel 2D. */
-  readonly embedding: 'sphere' | null;
+  /**
+   * Identificador do mergulho em ℝ³, ou nulo para superfícies que só vivem na
+   * carta. O catálogo está em `embedding.ts`; a métrica digitada aqui e o
+   * mergulho de lá descrevem a mesma superfície, e há teste garantindo isso.
+   */
+  readonly embedding: string | null;
   readonly note: string;
 }
 
@@ -57,7 +61,7 @@ export const SPHERE_EXAMPLE: MetricExample = {
   initialOmega: [6, 2.5],
   maxVector: 0.42,
   closedCurvature: () => 1,
-  embedding: 'sphere',
+  embedding: 'esfera',
   note: 'Curvatura constante K = 1. Os polos θ=0 e θ=π são singularidades de coordenada.',
 };
 
@@ -84,6 +88,80 @@ export const EUCLIDEAN_EXAMPLE: MetricExample = {
   note:
     'Curvatura zero, e ♭ não faz nada: v♭ tem os mesmos números que v. ' +
     'É por isso que em ℝ² ninguém precisa distinguir vetor de covetor.',
+};
+
+/**
+ * Cilindro: curvo no espaço, **plano por dentro**.
+ *
+ * A métrica tem componentes constantes, então os Christoffels somem e K = 0 —
+ * a mesma geometria do plano euclidiano, enrolada. É o contraexemplo mais barato
+ * para "curvatura é o quanto a superfície entorta no espaço": a folha de papel
+ * enrolada não esticou nem rasgou, e nada da geometria dela mudou.
+ */
+export const CYLINDER_EXAMPLE: MetricExample = {
+  id: 'cilindro',
+  label: 'Cilindro (R = 1)',
+  chart: chart(['phi', 'z']),
+  components: ['1', '0', '1'],
+  bounds: { min: [-Math.PI, -2], max: [Math.PI, 2] },
+  initialPoint: [0.6, 0],
+  initialVector: [0.35, 0.4],
+  initialOmega: [4, 3],
+  maxVector: 0.7,
+  closedCurvature: () => 0,
+  embedding: 'cilindro',
+  note:
+    'K = 0 em toda parte: o cilindro é o plano enrolado. Compare com a esfera — ' +
+    'entortar no espaço não é o mesmo que ter curvatura.',
+};
+
+/**
+ * Cone: também plano, e pelo motivo mais bonito.
+ *
+ * A circunferência à distância r do vértice é 2πr·sen α, menor que 2πr. O que
+ * falta é o déficit angular, e ele está **todo concentrado no vértice**:
+ * curvatura zero em toda parte e ainda assim uma superfície que não é o plano.
+ */
+export const CONE_EXAMPLE: MetricExample = {
+  id: 'cone',
+  label: 'Cone (sen α = 0,6)',
+  chart: chart(['r', 'phi']),
+  components: ['1', '0', '0.36*r^2'],
+  bounds: { min: [0.15, -Math.PI], max: [2.5, Math.PI] },
+  initialPoint: [1.2, 0.4],
+  initialVector: [0.3, 0.35],
+  initialOmega: [4, 3],
+  maxVector: 0.6,
+  closedCurvature: () => 0,
+  embedding: 'cone',
+  note:
+    'K = 0 fora do vértice, mas a circunferência a distância r é 2πr·0,6 e não ' +
+    '2πr. O déficit está todo concentrado no vértice, onde a carta acaba.',
+};
+
+/**
+ * Toro: os três sinais de curvatura numa superfície só.
+ *
+ * K = cos v / (a(R + a·cos v)) é positiva na parte de fora, negativa na parte de
+ * dentro e zero nos círculos de cima e de baixo. Arrastar o mesmo ponto pelo
+ * tubo percorre os três regimes — o que esfera, cilindro e hiperbólico só
+ * mostram em cenas separadas.
+ */
+export const TORUS_EXAMPLE: MetricExample = {
+  id: 'toro',
+  label: 'Toro (R = 2, a = 0,8)',
+  chart: chart(['u', 'v']),
+  components: ['(2 + 0.8*cos(v))^2', '0', '0.64'],
+  bounds: { min: [-Math.PI, -Math.PI], max: [Math.PI, Math.PI] },
+  initialPoint: [0.6, 0.5],
+  initialVector: [0.18, 0.4],
+  initialOmega: [5, 3],
+  maxVector: 0.6,
+  closedCurvature: (x) => Math.cos(x[1]!) / (0.8 * (2 + 0.8 * Math.cos(x[1]!))),
+  embedding: 'toro',
+  note:
+    'K = cos v / (a(R + a·cos v)): positiva por fora, negativa por dentro, zero ' +
+    'nos círculos de cima e de baixo. Arraste o ponto pelo tubo e veja o sinal virar.',
 };
 
 export const HYPERBOLIC_EXAMPLE: MetricExample = {
@@ -121,6 +199,9 @@ export const SCHWARZSCHILD_EXAMPLE: MetricExample = {
 
 export const EXAMPLES: readonly MetricExample[] = [
   SPHERE_EXAMPLE,
+  TORUS_EXAMPLE,
+  CYLINDER_EXAMPLE,
+  CONE_EXAMPLE,
   EUCLIDEAN_EXAMPLE,
   HYPERBOLIC_EXAMPLE,
   SCHWARZSCHILD_EXAMPLE,
@@ -164,10 +245,7 @@ export function exampleToScene(example: MetricExample, estado: SceneState): Scen
     campos: estado.campos,
     maxVetor: example.maxVector,
     bemol: estado.bemol,
-    // O arquivo de cena é lido e escrito por gente, então fala português; o
-    // código interno segue em inglês. A tradução mora aqui, nas duas pontes, e
-    // em nenhum outro lugar.
-    mergulho: example.embedding === 'sphere' ? 'esfera' : null,
+    mergulho: example.embedding,
     rotulo: example.label,
     nota: example.note,
   };
@@ -193,7 +271,7 @@ export function sceneToExample(cena: SceneDoc): MetricExample {
     initialOmega: [...cena.omega],
     maxVector: cena.maxVetor,
     closedCurvature: () => Number.NaN,
-    embedding: cena.mergulho === 'esfera' ? 'sphere' : null,
+    embedding: cena.mergulho,
     note: cena.nota,
   };
 }

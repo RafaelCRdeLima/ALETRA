@@ -11,10 +11,14 @@ import { iluminado } from './materials';
  *
  * ## Por que levantar da superfície
  *
- * Uma curva desenhada exatamente sobre a esfera briga com ela no z-buffer e
+ * Uma curva desenhada exatamente sobre a superfície briga com ela no z-buffer e
  * aparece costurada, sumindo e voltando conforme o ângulo. `levantar` a afasta
- * alguns milésimos do raio: longe o bastante para o teste de profundidade
- * decidir, perto o bastante para continuar lendo como "em cima da superfície".
+ * alguns milésimos **ao longo da normal**.
+ *
+ * Ao longo da normal, e não escalando o vetor posição: na esfera as duas coisas
+ * coincidem e o atalho passava, mas num toro escalar afasta do *centro do
+ * mundo*, que não é a direção de sair da superfície. A curva descolaria por
+ * fora e afundaria por dentro.
  *
  * ## Por que subdividir na carta
  *
@@ -46,8 +50,11 @@ export interface CurvaOpcoes {
   readonly subdividir?: number;
 }
 
-/** Mapeia um ponto da carta para ℝ³. */
-export type Mergulho = (x: Float64Array, out: Float64Array) => void;
+/** O que a curva precisa saber da superfície: onde fica, e para onde é "fora". */
+export interface Mergulho {
+  point(x: Float64Array, out: Float64Array): void;
+  normal(x: Float64Array, out: Float64Array): void;
+}
 
 export function buildCurve(
   pontos: readonly Float64Array[],
@@ -56,17 +63,22 @@ export function buildCurve(
 ): THREE.Object3D | null {
   if (pontos.length < 2) return null;
 
-  const levantar = 1 + (opts.levantar ?? 0.004);
+  const levantar = opts.levantar ?? 0.006;
   const bruto = new Float64Array(3);
+  const normal = new Float64Array(3);
   const emR3: THREE.Vector3[] = [];
 
   const densos = adensar(pontos, opts.subdividir ?? 0);
   for (const p of densos) {
-    mergulho(p, bruto);
+    mergulho.point(p, bruto);
     if (!Number.isFinite(bruto[0]!) || !Number.isFinite(bruto[1]!) || !Number.isFinite(bruto[2]!)) {
       continue;
     }
-    const v = new THREE.Vector3(bruto[0]!, bruto[1]!, bruto[2]!).multiplyScalar(levantar);
+    mergulho.normal(p, normal);
+    const v = new THREE.Vector3(bruto[0]!, bruto[1]!, bruto[2]!);
+    if (Number.isFinite(normal[0]!)) {
+      v.addScaledVector(new THREE.Vector3(normal[0]!, normal[1]!, normal[2]!), levantar);
+    }
     // Pontos repetidos quebram a CatmullRom (tangente indefinida); num laço
     // fechado ou numa geodésica parada eles aparecem com facilidade.
     if (emR3.length === 0 || v.distanceToSquared(emR3[emR3.length - 1]!) > 1e-12) {

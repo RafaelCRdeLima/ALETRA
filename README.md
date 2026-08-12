@@ -23,8 +23,13 @@ toda a geometria é calculada na aba aberta, na máquina de quem abriu.
 
 ## O que já funciona
 
-- **Esfera, plano hiperbólico e fatia equatorial de Schwarzschild**, ou qualquer
-  métrica que você digitar nos campos `g_ij`.
+- **Sete superfícies**: esfera, toro, cilindro, cone, plano euclidiano, plano
+  hiperbólico e a fatia equatorial de Schwarzschild — ou qualquer métrica que
+  você digitar nos campos `g_ij`.
+- **Os três sinais de curvatura**, alcançáveis arrastando: o cilindro e o cone
+  são planos por dentro embora entortem no espaço; o toro tem K > 0 por fora,
+  K < 0 por dentro e K = 0 nos círculos de cima e de baixo, tudo na mesma
+  superfície.
 - **Dois painéis sincronizados**: a carta de coordenadas e, quando existe, o
   mergulho em ℝ³. Arrastar num move o outro. As duas imagens discordam — o
   número não.
@@ -42,8 +47,8 @@ estado viaja no próprio endereço, e as cenas do escopo cabem em menos de 600 c
 
 Acrescente `?limpo=1` ao endereço e todo o cromo desaparece: fica a superfície,
 o vetor, a pilha e o número. É a configuração para mostrar a alguém sem
-explicação prévia — nada na tela compete com a leitura. `?exemplo=hiperbolico`
-ou `?exemplo=schwarzschild` escolhem a superfície.
+explicação prévia — nada na tela compete com a leitura. `?exemplo=toro`,
+`?exemplo=cone` ou `?exemplo=schwarzschild` escolhem a superfície.
 
 [Ver o modo limpo →](https://rafaelcrdelima.github.io/ALETRA/?limpo=1)
 

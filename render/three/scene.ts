@@ -19,7 +19,10 @@ export interface Stage {
   readonly camera: THREE.PerspectiveCamera;
   readonly renderer: THREE.WebGLRenderer;
   readonly controls: OrbitControls;
-  readonly sphere: THREE.Mesh;
+  /** A superfície desenhada; a geometria é trocada quando o exemplo muda. */
+  readonly surface: THREE.Mesh;
+  /** As linhas de coordenada da carta sobre ela. */
+  readonly grid: THREE.LineSegments;
 }
 
 export function createStage(container: HTMLElement, R: number): Stage {
@@ -27,7 +30,18 @@ export function createStage(container: HTMLElement, R: number): Stage {
   scene.background = new THREE.Color(PALETTE.background);
 
   const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-  camera.position.set(R * 2.6, R * 1.9, R * 2.6);
+
+  /*
+   * O "para cima" do mundo é Z, e não o Y que o Three assume.
+   *
+   * Z é onde estão o polo da esfera, o eixo do cilindro, o eixo do cone e o eixo
+   * do toro — as quatro cartas concordam nisso. Com o Y padrão, a câmera olhava
+   * o cone quase pela boca, deitado sobre o próprio eixo, e a superfície mais
+   * fácil de reconhecer do conjunto virava uma mancha. Uma linha aqui endireita
+   * as quatro de uma vez, sem nenhuma orientação por superfície.
+   */
+  camera.up.set(0, 0, 1);
+  camera.position.set(R * 2.6, R * 2.6, R * 1.9);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -47,29 +61,31 @@ export function createStage(container: HTMLElement, R: number): Stage {
   rim.position.set(-5, -2, -4);
   scene.add(rim);
 
-  const sphere = new THREE.Mesh(
-    new THREE.SphereGeometry(R, 96, 64),
+  /*
+   * A superfície nasce vazia e recebe geometria conforme o exemplo.
+   *
+   * Antes era um `SphereGeometry` fixo, com a malha de referência vinda de um
+   * `WireframeGeometry` da própria primitiva — que precisou de uma rotação
+   * corretiva porque o Three gera os polos em Y e a carta (θ,φ) põe θ=0 em Z.
+   * Aquela grade *parecia* as linhas de coordenada e não era. Com a malha
+   * amostrada da carta, as linhas são as de coordenada por construção, em
+   * qualquer superfície, e a rotação corretiva deixou de existir.
+   */
+  const surface = new THREE.Mesh(
+    new THREE.BufferGeometry(),
     new THREE.MeshStandardMaterial({
       color: PALETTE.surface,
       roughness: 0.85,
       metalness: 0.05,
-      flatShading: false,
+      side: THREE.DoubleSide,
     }),
   );
-  scene.add(sphere);
+  scene.add(surface);
 
-  // Malha de paralelos/meridianos: dá referência de superfície sem competir com
-  // a pilha, que é a protagonista da cena.
-  //
-  // A rotação não é cosmética. SphereGeometry gera os polos no eixo Y; a carta
-  // (θ, φ) de core/sphere.ts põe θ=0 no eixo Z. Sem girar, a malha desenharia
-  // linhas que *parecem* as linhas de coordenada e não são — e o aluno leria a
-  // grade errada. Girar π/2 em X leva +Y para +Z e alinha as duas convenções.
   const grid = new THREE.LineSegments(
-    new THREE.WireframeGeometry(new THREE.SphereGeometry(R * 1.001, 24, 16)),
-    new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.09 }),
+    new THREE.BufferGeometry(),
+    new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.12 }),
   );
-  grid.rotation.x = Math.PI / 2;
   scene.add(grid);
 
   const resize = (): void => {
@@ -81,5 +97,5 @@ export function createStage(container: HTMLElement, R: number): Stage {
   resize();
   new ResizeObserver(resize).observe(container);
 
-  return { scene, camera, renderer, controls, sphere };
+  return { scene, camera, renderer, controls, surface, grid };
 }

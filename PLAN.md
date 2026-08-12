@@ -393,6 +393,39 @@ sequência, sem definição aqui.
 
 ---
 
+## Depois da Etapa 9 — o catálogo de superfícies
+
+**Estado:** construído. Era "mais superfícies pré-carregadas" na lista de trabalho futuro acima, e
+subiu de prioridade porque o professor pediu cone, cilindro e toro para a aula.
+
+**O que mudou de arquitetura:** havia uma esfera escrita à mão — `SphereGeometry` na cena,
+`sphereFrame` com base e normal em forma fechada, e a curva levantada multiplicando o ponto por um
+escalar. As três coisas eram atalhos que só a esfera permite. No lugar delas há um `Embedding`, que
+declara duas funções — onde fica o ponto e como voltar da superfície para a carta — e de onde saem
+por diferença finita a base tangente, a normal, a métrica induzida, a malha e as linhas de
+coordenada. Acrescentar a quarta superfície não custou uma linha por superfície em lugar nenhum do
+código de desenho; acrescentar a quinta também não vai custar.
+
+**As superfícies e o que cada uma ensina:**
+
+| Superfície | Carta | O que mostra |
+|---|---|---|
+| Esfera | $(\theta,\varphi)$ | $K=1$ constante; polos como singularidade de coordenada |
+| Toro | $(u,v)$ | os **três sinais** de $K$ na mesma superfície, alcançáveis arrastando |
+| Cilindro | $(\varphi,z)$ | $K=0$: entortar no espaço não é ter curvatura |
+| Cone | $(r,\varphi)$ | $K=0$ em toda parte e mesmo assim não é o plano — o déficit angular está todo no vértice |
+
+**Critério de verificação, e é o que importa aqui:** a métrica continua **digitada** — o aluno tem
+de vê-la e mexer nela, então derivá-la do mergulho em silêncio trocaria o objeto de estudo por uma
+caixa-preta. O preço é que as duas descrições podem discordar, e discordar em silêncio, com o painel
+de carta mostrando uma geometria e o de ℝ³ mostrando outra, cada um internamente coerente. É o pior
+modo de falha possível para este produto. `core/embedding.test.ts` fecha isso: para cada superfície
+do catálogo, a métrica induzida pelo mergulho tem de bater com a métrica digitada componente a
+componente, em vários pontos da carta. O toro é verificado também contra a fórmula fechada
+$K=\cos v/(a(R+a\cos v))$ num varrimento inteiro do tubo.
+
+---
+
 ## Riscos
 
 | Risco | Sinal antecipado |

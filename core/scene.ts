@@ -46,8 +46,8 @@ export interface SceneDoc {
   readonly maxVetor: number;
   /** Morfose v ⇄ v♭ da Etapa 3, em [0, 1]. */
   readonly bemol: number;
-  /** Só a esfera tem mergulho em ℝ³ hoje; qualquer outra coisa vive na carta. */
-  readonly mergulho: 'esfera' | null;
+  /** Identificador do mergulho em ℝ³, ou nulo para viver só na carta. */
+  readonly mergulho: string | null;
   /**
    * Os campos digitados das Etapas 6 e 7.
    *
@@ -81,6 +81,9 @@ const MODOS_CONHECIDOS = [
   'geodesica',
 ] as const;
 type ModoCena = (typeof MODOS_CONHECIDOS)[number];
+
+/** Os mergulhos que o produto sabe desenhar — o catálogo de `embedding.ts`. */
+const MERGULHOS_CONHECIDOS: readonly string[] = ['esfera', 'cilindro', 'cone', 'toro'];
 
 const ehModo = (valor: unknown): valor is ModoCena =>
   typeof valor === 'string' && (MODOS_CONHECIDOS as readonly string[]).includes(valor);
@@ -195,9 +198,11 @@ export function sceneFromUnknown(bruto: unknown): SceneDoc {
   const bemol = exigirNumero(o['bemol'], 'cena.bemol');
   if (bemol < 0 || bemol > 1) throw new SceneError('cena.bemol: tem de estar entre 0 e 1');
 
-  const mergulho = o['mergulho'];
-  if (mergulho !== null && mergulho !== 'esfera') {
-    throw new SceneError('cena.mergulho: só "esfera" ou nulo são conhecidos');
+  const mergulho = o['mergulho'] ?? null;
+  if (mergulho !== null && !MERGULHOS_CONHECIDOS.includes(mergulho as string)) {
+    throw new SceneError(
+      `cena.mergulho: só ${MERGULHOS_CONHECIDOS.map((m) => `"${m}"`).join(', ')} ou nulo`,
+    );
   }
 
   const vetor = exigirNumeros(o['vetor'], 'cena.vetor', 2);
@@ -233,7 +238,7 @@ export function sceneFromUnknown(bruto: unknown): SceneDoc {
     campos: lerCampos(o['campos']),
     maxVetor,
     bemol,
-    mergulho,
+    mergulho: mergulho as string | null,
     rotulo: exigirTexto(o['rotulo'] ?? '', 'cena.rotulo', 120),
     nota: exigirTexto(o['nota'] ?? '', 'cena.nota', 400),
   };

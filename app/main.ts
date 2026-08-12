@@ -29,12 +29,17 @@ import { ParseError } from '../core/expr';
 import { normSquared, type ChristoffelFn, type MetricFn } from '../core/metric';
 import { compileMetric, componentIndices } from '../core/metric-expr';
 import { read } from '../core/reading';
-import { sphereChartOf, sphereEmbed } from '../core/sphere';
+import {
+  embeddingById,
+  embeddingNormal,
+  type Embedding,
+} from '../core/embedding';
 import { createChartPanel } from '../render/svg/chart-panel';
-import { fromWorld, sphereFrame, toWorld, type TangentFrame } from '../render/three/frame';
+import { frameFor, fromWorld, toWorld, type TangentFrame } from '../render/three/frame';
 import { criarSetaMovel, disposeChildren } from '../render/three/primitives';
 import { basico, iluminado } from '../render/three/materials';
 import { createStage, PALETTE } from '../render/three/scene';
+import { buildChartGrid, buildSurface } from '../render/three/surface';
 import { buildCurve } from '../render/three/curve';
 import { buildStack } from '../render/three/stack';
 import { buildVector } from '../render/three/vector';
@@ -308,7 +313,7 @@ function recompile(): void {
  */
 function embeddingMatches(): boolean {
   return (
-    scene.example.embedding === 'sphere' &&
+    mergulhoAtual !== null &&
     scene.components.every((text, i) => text === scene.example.components[i])
   );
 }
@@ -355,7 +360,60 @@ const uHandle = new THREE.Mesh(
 );
 stage.scene.add(pointHandle, tipHandle, uHandle);
 
-let frame: TangentFrame = sphereFrame(R, scene.x);
+let mergulhoAtual: Embedding | null = embeddingById(scene.example.embedding);
+
+/** Onde a superfície atual está e qual o tamanho dela, para enquadrar. */
+const centroDaSuperficie = new THREE.Vector3();
+let raioDaSuperficie = 1;
+
+/**
+ * Troca a superfície desenhada quando o exemplo muda.
+ *
+ * A malha e as linhas de coordenada são amostradas do mergulho, então nenhuma
+ * superfície nova precisa de código de render próprio: se `point(u,v)` existe,
+ * ela aparece.
+ */
+function trocarSuperficie(): void {
+  mergulhoAtual = embeddingById(scene.example.embedding);
+  stage.surface.visible = mergulhoAtual !== null;
+  stage.grid.visible = mergulhoAtual !== null;
+  if (!mergulhoAtual) return;
+
+  stage.surface.geometry.dispose();
+  stage.grid.geometry.dispose();
+  stage.surface.geometry = buildSurface(mergulhoAtual, scene.example.bounds);
+  stage.grid.geometry = buildChartGrid(mergulhoAtual, scene.example.bounds);
+  frame = frameFor(mergulhoAtual, scene.x);
+
+  /*
+   * A câmera acompanha o tamanho da superfície.
+   *
+   * A distância era fixa, calibrada para a esfera de raio 1. O toro tem raio
+   * maior 2 e a mesma câmera caía dentro dele — a cena existia e o aluno via a
+   * parede por dentro. O raio da caixa envolvente diz o tamanho de qualquer
+   * superfície, inclusive das que ainda não existem.
+   */
+  stage.surface.geometry.computeBoundingSphere();
+  const caixa = stage.surface.geometry.boundingSphere;
+  raioDaSuperficie = caixa?.radius ?? 1;
+  centroDaSuperficie.copy(caixa?.center ?? new THREE.Vector3());
+
+  // Mirar no centro da superfície, e não na origem. A esfera e o toro são
+  // centrados e o atalho passava; o cone sobe do vértice, então olhar para a
+  // origem o deixava fora de quadro pela metade.
+  const direcao = stage.camera.position.clone().sub(stage.controls.target).normalize();
+  stage.controls.target.copy(centroDaSuperficie);
+  stage.camera.position
+    .copy(centroDaSuperficie)
+    .addScaledVector(direcao, raioDaSuperficie * 2.7);
+  stage.controls.minDistance = raioDaSuperficie * 1.2;
+  stage.controls.maxDistance = raioDaSuperficie * 9;
+  stage.controls.update();
+}
+let frame: TangentFrame = frameFor(
+  mergulhoAtual ?? embeddingById('esfera')!,
+  scene.x,
+);
 
 /** Enquanto false, o laço de animação não gasta frame com um canvas escondido. */
 let painelAtivo = true;
@@ -395,8 +453,14 @@ interface Cena3D {
   readonly traco: Traco | null;
 }
 
-/** O mergulho da esfera, na forma que `buildCurve` espera. */
-const naEsfera = (x: Float64Array, out: Float64Array): void => sphereEmbed(R, x, out);
+/**
+ * O mergulho da superfície atual, na forma que `buildCurve` espera — ponto e
+ * normal, porque levantar da superfície é ao longo da normal e não do raio.
+ */
+const naSuperficie = {
+  point: (x: Float64Array, out: Float64Array): void => mergulhoAtual!.point(x, out),
+  normal: (x: Float64Array, out: Float64Array): void => embeddingNormal(mergulhoAtual!, x, out),
+};
 
 /**
  * As curvas das Etapas 7, 8 e 9 sobre a superfície.
@@ -419,7 +483,7 @@ function desenharCurvas(d: Cena3D): THREE.Vector3 | null {
   const bruto = new Float64Array(3);
   const somar = (pontos: readonly Float64Array[]): void => {
     for (const ponto of pontos) {
-      naEsfera(ponto, bruto);
+      naSuperficie.point(ponto, bruto);
       if (!Number.isFinite(bruto[0]!)) continue;
       centro.add(new THREE.Vector3(bruto[0]!, bruto[1]!, bruto[2]!));
       quantos++;
@@ -429,17 +493,17 @@ function desenharCurvas(d: Cena3D): THREE.Vector3 | null {
   if (d.colchete) {
     somar(d.colchete.caminhoXY);
     somar(d.colchete.caminhoYX);
-    juntar(buildCurve(d.colchete.caminhoXY, naEsfera, {
+    juntar(buildCurve(d.colchete.caminhoXY, naSuperficie, {
       raioDoTubo: 0.012, color: PALETTE.vector,
     }));
-    juntar(buildCurve(d.colchete.caminhoYX, naEsfera, {
+    juntar(buildCurve(d.colchete.caminhoYX, naSuperficie, {
       raioDoTubo: 0.012, color: PALETTE.eta,
     }));
     const fimXY = d.colchete.caminhoXY[d.colchete.caminhoXY.length - 1];
     const fimYX = d.colchete.caminhoYX[d.colchete.caminhoYX.length - 1];
     if (fimXY && fimYX) {
       // O vão desenhado por último e mais grosso: é ele que se lê.
-      juntar(buildCurve([fimYX, fimXY], naEsfera, {
+      juntar(buildCurve([fimYX, fimXY], naSuperficie, {
         raioDoTubo: 0.026, color: PALETTE.brand, emissiveScale: 0.5, levantar: 0.016,
         subdividir: 8,
       }));
@@ -451,7 +515,7 @@ function desenharCurvas(d: Cena3D): THREE.Vector3 | null {
     // Mais grosso e mais levantado que as outras curvas: um laço que cerca área
     // grande dá a volta na esfera, e o trecho visível de cada vez é curto — se
     // ele for fino também, some.
-    juntar(buildCurve(d.giro.caminho, naEsfera, {
+    juntar(buildCurve(d.giro.caminho, naSuperficie, {
       raioDoTubo: 0.017, color: PALETTE.handle, opacity: 0.9,
       emissiveScale: 0.3, levantar: 0.012, subdividir: 24,
     }));
@@ -468,11 +532,11 @@ function desenharCurvas(d: Cena3D): THREE.Vector3 | null {
   if (d.traco) {
     somar(d.traco.principal.caminho);
     if (d.traco.vizinha) {
-      juntar(buildCurve(d.traco.vizinha.caminho, naEsfera, {
+      juntar(buildCurve(d.traco.vizinha.caminho, naSuperficie, {
         raioDoTubo: 0.008, color: PALETTE.fraction, opacity: 0.5,
       }));
     }
-    juntar(buildCurve(d.traco.principal.caminho, naEsfera, {
+    juntar(buildCurve(d.traco.principal.caminho, naSuperficie, {
       raioDoTubo: 0.015, color: PALETTE.fraction, emissiveScale: 0.35,
     }));
   }
@@ -491,10 +555,15 @@ function desenharCurvas(d: Cena3D): THREE.Vector3 | null {
  * reenquadrar continuamente prenderia a câmera e tiraria dele o controle.
  */
 function enquadrar(centro: THREE.Vector3 | null): void {
-  if (!centro || centro.lengthSq() < 1e-9) return;
-  const distancia = stage.camera.position.length();
-  stage.camera.position.copy(centro).normalize().multiplyScalar(distancia);
-  stage.controls.target.set(0, 0, 0);
+  if (!centro) return;
+  const direcao = centro.clone().sub(centroDaSuperficie);
+  if (direcao.lengthSq() < 1e-9) return;
+
+  const distancia = stage.camera.position.distanceTo(stage.controls.target);
+  stage.controls.target.copy(centroDaSuperficie);
+  stage.camera.position
+    .copy(centroDaSuperficie)
+    .addScaledVector(direcao.normalize(), distancia);
   stage.controls.update();
 }
 
@@ -781,7 +850,8 @@ function moverSetaDeslizante(): void {
   const ponto = amostras.pontos[indice]!;
   const vetor = amostras.vetores[indice]!;
 
-  const quadro = sphereFrame(R, ponto);
+  if (!mergulhoAtual) return;
+  const quadro = frameFor(mergulhoAtual, ponto);
   const mundo = toWorld(quadro, vetor, new THREE.Vector3());
   const comprimento = mundo.length();
   if (comprimento < 1e-6) return;
@@ -1153,7 +1223,7 @@ function update(): void {
   clampVectorMetric(scene.v);
   clampVectorMetric(scene.u);
   const comMergulho = embeddingMatches();
-  if (comMergulho) frame = sphereFrame(R, scene.x);
+  if (comMergulho && mergulhoAtual) frame = frameFor(mergulhoAtual, scene.x);
   document.body.classList.toggle('sem-mergulho', !comMergulho);
 
   const duasFormas = modo === 'duas';
@@ -1313,6 +1383,8 @@ function buildSelector(): void {
     syncEtaControls();
     resetCampos();
     syncCampoLabels();
+    trocarSuperficie();
+    precisaEnquadrar = true;
     update();
   });
 }
@@ -1744,11 +1816,12 @@ stage.renderer.domElement.addEventListener('pointermove', (event) => {
   setPointer(event);
 
   if (drag === 'point') {
-    const [intersection] = raycaster.intersectObject(stage.sphere, false);
+    const [intersection] = raycaster.intersectObject(stage.surface, false);
     if (!intersection) return;
+    if (!mergulhoAtual) return;
     const { x, y, z } = intersection.point;
     const candidate = new Float64Array(DIM);
-    sphereChartOf([x, y, z], candidate);
+    mergulhoAtual.chartOf([x, y, z], candidate);
     movePoint(candidate);
   } else {
     // O arraste é resolvido contra o plano tangente, então qualquer dos dois
@@ -1772,6 +1845,7 @@ stage.renderer.domElement.addEventListener('pointercancel', endDrag);
 // -------------------------------------------------------------------- boot
 
 document.body.classList.toggle('limpo', MODO_LIMPO);
+trocarSuperficie();
 buildSelector();
 bindCopiar();
 el<HTMLSelectElement>('seletor').value = scene.example.id;

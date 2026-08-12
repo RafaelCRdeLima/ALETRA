@@ -75,12 +75,21 @@ describe('ida e volta', () => {
     expect(exemplo.maxVector).toBe(BASE.maxVetor);
   });
 
-  it('traduz o mergulho entre o arquivo (português) e o código (inglês)', () => {
-    expect(BASE.mergulho).toBe('esfera');
-    expect(sceneToExample(BASE).embedding).toBe('sphere');
+  it('o mergulho atravessa como identificador, sem tradução', () => {
+    // Havia um mapeamento 'esfera' ⇄ 'sphere' aqui, de quando o único mergulho
+    // era a esfera e o código falava inglês. Com o catálogo de superfícies o id
+    // passou a ser o mesmo dos dois lados, e a tradução deixou de existir —
+    // menos uma camada onde os dois nomes podiam divergir.
+    expect(sceneToExample(BASE).embedding).toBe(BASE.mergulho);
 
     const semMergulho: SceneDoc = { ...BASE, mergulho: null };
     expect(sceneToExample(semMergulho).embedding).toBeNull();
+  });
+
+  it('aceita todas as superfícies do catálogo', () => {
+    for (const id of ['esfera', 'cilindro', 'cone', 'toro']) {
+      expect(sceneFromText(JSON.stringify({ ...BASE, mergulho: id })).mergulho).toBe(id);
+    }
   });
 });
 
@@ -140,8 +149,10 @@ describe('recusa de entrada malformada', () => {
     recusa({ bemol: 1.5 }, /entre 0 e 1/);
   });
 
-  it('recusa mergulho desconhecido', () => {
-    recusa({ mergulho: 'toro' }, /só "esfera" ou nulo/);
+  it('recusa mergulho fora do catálogo', () => {
+    // Já foi 'toro' o exemplo de desconhecido aqui — e o toro virou conhecido.
+    // Um nome que o produto nunca vai desenhar serve melhor ao papel.
+    recusa({ mergulho: 'garrafa-de-klein' }, /cena\.mergulho: só/);
   });
 
   it('recusa modo desconhecido', () => {

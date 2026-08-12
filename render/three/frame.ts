@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { sphereBasis, sphereEmbed, sphereNormal } from '../../core/sphere';
+import { embeddingBasis, embeddingNormal, type Embedding } from '../../core/embedding';
 
 /**
  * O plano tangente num ponto, já empurrado para ℝ³.
@@ -17,13 +17,20 @@ export interface TangentFrame {
   readonly w: THREE.Vector3;
 }
 
-export function sphereFrame(R: number, x: Float64Array): TangentFrame {
+/**
+ * O plano tangente num ponto, para qualquer superfície mergulhada.
+ *
+ * Era `sphereFrame`, com base e normal em forma fechada. Derivar as duas do
+ * mergulho por diferença finita serve cilindro, cone e toro sem uma linha por
+ * superfície — e o custo é irrelevante perto do resto do quadro.
+ */
+export function frameFor(embedding: Embedding, x: Float64Array): TangentFrame {
   const p = new Float64Array(3);
   const e = new Float64Array(6);
   const n = new Float64Array(3);
-  sphereEmbed(R, x, p);
-  sphereBasis(R, x, e);
-  sphereNormal(x, n);
+  embedding.point(x, p);
+  embeddingBasis(embedding, x, e);
+  embeddingNormal(embedding, x, n);
 
   const point = new THREE.Vector3(p[0]!, p[1]!, p[2]!);
   const e0 = new THREE.Vector3(e[0]!, e[1]!, e[2]!);
