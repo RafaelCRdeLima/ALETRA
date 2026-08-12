@@ -245,9 +245,14 @@ body.limpo #copiar {
 
 /* O paralelogramo é pintado fraco de propósito: ele delimita a região, mas quem
    tem de saltar aos olhos são as folhas que o recortam em células. */
+/*
+ * Sem `fill` aqui de propósito: ele é atributo de apresentação, posto pelo
+ * render, porque alterna entre o padrão de células e um preenchimento liso. Uma
+ * regra `fill` nesta classe venceria o atributo — CSS ganha de atributo de
+ * apresentação — e as células nunca apareceriam, silenciosamente.
+ */
 .celula {
-  fill: rgba(244, 239, 233, 0.11);
-  stroke: rgba(244, 239, 233, 0.45);
+  stroke: rgba(244, 239, 233, 0.5);
   stroke-width: 1.5;
   stroke-dasharray: 5 4;
 }

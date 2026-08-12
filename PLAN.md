@@ -222,6 +222,13 @@ alterna entre a leitura de 1-form e a de 2-form, porque mostrar $\langle\omega,v
 $(\omega\wedge\eta)(u,v)$ ao mesmo tempo obrigaria o aluno a descobrir sozinho qual número
 corresponde a qual desenho.
 
+**Ressalva registrada (levantada ao ver o desenho):** a *forma* da célula não pertence à 2-form.
+Numa superfície ela é top-degree — só densidade e orientação, sem direção preferida — e o retículo
+desenhado vem da fatoração $\omega\wedge\eta$ que o aluno escolheu. Girar $\omega$ e $\eta$
+mantendo $\sigma$ produz células de outro formato e **a mesma contagem**, e ver isso acontecer é
+conteúdo, não defeito: é a demonstração de que a 2-form não carrega grade própria. O desenho não
+deve, porém, ser lido como se a grade fosse dela.
+
 **Confirmação de D12:** nenhum código de avaliação novo foi preciso. `evaluate(σ, [u, v])` é a mesma
 função que a Etapa 1 usa com um vetor, e já estava verde desde lá. O que esta etapa escreveu foi o
 $\wedge$ em si e o desenho.

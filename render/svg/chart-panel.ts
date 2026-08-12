@@ -44,7 +44,21 @@ export interface ChartPanelState {
    * É o que transforma "há um ladrilho" em "há **este** número de células":
    * sem região cercada não há o que contar.
    */
-  readonly cell: { readonly u: Float64Array; readonly v: Float64Array } | null;
+  readonly cell: {
+    readonly u: Float64Array;
+    readonly v: Float64Array;
+    /**
+     * Arestas da célula unitária em coordenadas da carta — a base dual de
+     * (ω, η). É o que permite pintar as células como *áreas* em vez de deixá-las
+     * como vãos entre linhas que o olho tem de reconstruir.
+     *
+     * Vem de fora e não é deduzida aqui porque a forma da célula **não pertence
+     * à 2-form**: numa superfície ela é top-degree, só densidade e orientação.
+     * Este retículo é o da fatoração ω∧η que o aluno escolheu; outra fatoração
+     * com o mesmo σ daria células de outro formato e a mesma contagem.
+     */
+    readonly lattice: { readonly a: readonly number[]; readonly b: readonly number[] } | null;
+  } | null;
   /** Segundo vetor desenhado, quando existe. */
   readonly vectorU: Float64Array | null;
   readonly point: Float64Array;
@@ -94,7 +108,10 @@ export function createChartPanel(callbacks: ChartPanelCallbacks): ChartPanel {
     </radialGradient>
     <mask id="veu-mask">
       <rect id="veu-rect" fill="url(#veu-2d)"/>
-    </mask>`;
+    </mask>
+    <pattern id="celulas" patternUnits="userSpaceOnUse" width="1" height="1">
+      <rect x="0.07" y="0.07" width="0.86" height="0.86" fill="#f4efe9" opacity="0.20"/>
+    </pattern>`;
   svg.appendChild(defs);
 
   // A ordem importa: o paralelogramo é pintado *antes* das pilhas, para as
@@ -188,7 +205,45 @@ export function createChartPanel(callbacks: ChartPanelCallbacks): ChartPanel {
     const poligono = document.createElementNS(NS, 'polygon');
     poligono.setAttribute('points', cantos.map(([x, y]) => `${x},${y}`).join(' '));
     poligono.setAttribute('class', 'celula');
+    // Ladrilho quando as células são contáveis; liso quando não são, para o
+    // desenho nunca sugerir que há o que contar onde não há.
+    poligono.setAttribute(
+      'fill',
+      ladrilhar(state) ? 'url(#celulas)' : 'rgba(244, 239, 233, 0.11)',
+    );
     layers.cell.appendChild(poligono);
+  }
+
+  /**
+   * Alinha o padrão de células ao retículo de ω e η, ancorado em p.
+   *
+   * Devolve falso quando não há o que ladrilhar: ω e η paralelos (σ ≈ 0, células
+   * infinitas) ou células menores que alguns pixels, caso em que o padrão viraria
+   * um borrão cinza e mentiria sobre haver algo contável. Aí fica o preenchimento
+   * liso, e o numeral continua dizendo a verdade.
+   */
+  function ladrilhar(state: ChartPanelState): boolean {
+    const rede = state.cell?.lattice;
+    const padrao = defs.querySelector('#celulas');
+    if (!rede || !padrao) return false;
+
+    const box = plot();
+    const { min, max } = state.bounds;
+    const sx = box.width / (max[0]! - min[0]!);
+    const sy = box.height / (max[1]! - min[1]!);
+
+    // Carta → pixel, com o y invertido como no resto do painel.
+    const ax = rede.a[0]! * sx;
+    const ay = -rede.a[1]! * sy;
+    const bx = rede.b[0]! * sx;
+    const by = -rede.b[1]! * sy;
+
+    const area = Math.abs(ax * by - ay * bx);
+    if (!Number.isFinite(area) || area < 90) return false;
+
+    const [px, py] = toPixel(state, Array.from(state.point));
+    padrao.setAttribute('patternTransform', `matrix(${ax} ${ay} ${bx} ${by} ${px} ${py})`);
+    return true;
   }
 
   // ------------------------------------------------------------- camadas

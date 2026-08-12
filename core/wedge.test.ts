@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { evaluate, form } from './forms';
-import { cellArea, wedge } from './wedge';
+import { cellArea, cellEdges, wedge } from './wedge';
 
 const um = (dim: number, c: readonly number[]) => form(dim, 1, c);
 
@@ -93,6 +93,51 @@ describe('a leitura: contar células', () => {
     expect(cellArea(2)).toBeCloseTo(0.5, 12);
     expect(cellArea(-4)).toBeCloseTo(0.25, 12);
     expect(cellArea(0)).toBe(Number.POSITIVE_INFINITY);
+  });
+});
+
+describe('as arestas da célula', () => {
+  it('são a base dual: ω(a)=1, η(a)=0, ω(b)=0, η(b)=1', () => {
+    const w = um(2, [3, -1.2]);
+    const e = um(2, [0.7, 2.4]);
+    const rede = cellEdges(w, e)!;
+
+    const aplicar = (f: typeof w, x: readonly number[]) =>
+      f.components[0]! * x[0]! + f.components[1]! * x[1]!;
+
+    expect(aplicar(w, rede.a)).toBeCloseTo(1, 12);
+    expect(aplicar(e, rede.a)).toBeCloseTo(0, 12);
+    expect(aplicar(w, rede.b)).toBeCloseTo(0, 12);
+    expect(aplicar(e, rede.b)).toBeCloseTo(1, 12);
+  });
+
+  it('a célula tem exatamente a área que 1/|σ| promete', () => {
+    const w = um(2, [3, -1.2]);
+    const e = um(2, [0.7, 2.4]);
+    const rede = cellEdges(w, e)!;
+    const sigma = wedge(w, e).components[0]!;
+    const area = Math.abs(rede.a[0] * rede.b[1] - rede.a[1] * rede.b[0]);
+    expect(area).toBeCloseTo(cellArea(sigma), 12);
+  });
+
+  it('a forma muda com a fatoração, a área não — a 2-form não tem grade preferida', () => {
+    // Duas fatorações do mesmo σ: (dx, dy) e (dx+dy, dy). Células diferentes,
+    // mesma área, mesma contagem.
+    const a1 = cellEdges(um(2, [1, 0]), um(2, [0, 1]))!;
+    const a2 = cellEdges(um(2, [1, 1]), um(2, [0, 1]))!;
+
+    const area = (r: typeof a1) => Math.abs(r.a[0] * r.b[1] - r.a[1] * r.b[0]);
+    expect(area(a1)).toBeCloseTo(area(a2), 12);
+
+    // O formato é outro. Comparar o par inteiro, não uma aresta: nesta fatoração
+    // `a` coincide por acaso e só `b` muda — asserção sobre uma aresta só daria
+    // falso negativo dependendo do exemplo escolhido.
+    expect([a1.a, a1.b]).not.toEqual([a2.a, a2.b]);
+  });
+
+  it('não há célula quando ω e η são paralelos', () => {
+    expect(cellEdges(um(2, [2, 4]), um(2, [1, 2]))).toBeNull();
+    expect(cellEdges(um(2, [0, 0]), um(2, [1, 2]))).toBeNull();
   });
 });
 

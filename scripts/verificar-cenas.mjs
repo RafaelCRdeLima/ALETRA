@@ -201,7 +201,13 @@ console.log('\n— ∧ e a contagem de células —');
 
   const celulas = await page.locator('.camada-celula polygon').count();
   const folhasEta = await page.locator('.chart-panel .folha-eta').count();
-  console.log(`  paralelogramo desenhado=${celulas === 1}, folhas de η = ${folhasEta}`);
+  // As células têm de estar *pintadas*, não só implícitas no cruzamento das
+  // linhas — uma regra de CSS com `fill` já engoliu esse padrão uma vez.
+  const preenchimento = await page.locator('.camada-celula polygon').getAttribute('fill');
+  console.log(
+    `  paralelogramo desenhado=${celulas === 1}, folhas de η = ${folhasEta}, ` +
+      `células pintadas=${preenchimento?.includes('url(#celulas)') ? '✓' : `✗ (${preenchimento})`}`,
+  );
   await page.screenshot({ path: `${OUT}/duas-formas.png` });
 
   // Trocar ω por η inverte a orientação: mesmo módulo, sinal oposto.

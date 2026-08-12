@@ -11,7 +11,7 @@ import {
 import { sceneFromParam, sceneToParam, type SceneDoc } from '../core/scene';
 import { evaluate, form, type Form } from '../core/forms';
 import { flatForm } from '../core/musical';
-import { wedge } from '../core/wedge';
+import { cellEdges, wedge } from '../core/wedge';
 import { ParseError } from '../core/expr';
 import { normSquared, type ChristoffelFn, type MetricFn } from '../core/metric';
 import { compileMetric, componentIndices } from '../core/metric-expr';
@@ -513,7 +513,9 @@ function update(): void {
       bounds: scene.example.bounds,
       names: scene.example.chart.symbols,
       stacks: camadas,
-      cell: duasFormas ? { u: scene.u, v: scene.v } : null,
+      cell: duasFormas
+        ? { u: scene.u, v: scene.v, lattice: cellEdges(scene.omega, scene.eta) }
+        : null,
       vectorU: duasFormas ? scene.u : null,
       point: scene.x,
       vector: scene.v,

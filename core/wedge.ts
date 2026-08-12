@@ -53,3 +53,36 @@ export function wedge(a: Form, b: Form): Form {
 export function cellArea(sigma: number): number {
   return Math.abs(sigma) < 1e-12 ? Number.POSITIVE_INFINITY : 1 / Math.abs(sigma);
 }
+
+/**
+ * As arestas da célula unitária do retículo de ω e η — a base dual de (ω, η).
+ *
+ * São os vetores a e b com ω(a)=1, η(a)=0, ω(b)=0, η(b)=1: exatamente o
+ * paralelogramo que uma folha de ω e uma de η recortam. É o que o desenho
+ * precisa para pintar as células como áreas em vez de deixá-las como vãos
+ * entre linhas.
+ *
+ * **A forma da célula não pertence à 2-form.** Numa superfície ela é
+ * top-degree — só densidade e orientação, sem direção preferida. Este retículo
+ * é da *fatoração* ω∧η escolhida; girar ω e η mantendo σ dá células de outro
+ * formato e a mesma contagem, e ver isso acontecer é conteúdo, não defeito.
+ *
+ * Devolve null quando ω e η são paralelos: aí σ = 0, não há célula finita, e
+ * não há o que ladrilhar.
+ */
+export function cellEdges(
+  omega: Form,
+  eta: Form,
+): { a: [number, number]; b: [number, number] } | null {
+  if (omega.dim !== 2 || eta.dim !== 2) return null;
+
+  const [w0, w1] = [omega.components[0]!, omega.components[1]!];
+  const [e0, e1] = [eta.components[0]!, eta.components[1]!];
+  const sigma = w0 * e1 - w1 * e0;
+  if (!Number.isFinite(sigma) || Math.abs(sigma) < 1e-12) return null;
+
+  return {
+    a: [e1 / sigma, -e0 / sigma],
+    b: [-w1 / sigma, w0 / sigma],
+  };
+}
