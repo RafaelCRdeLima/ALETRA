@@ -131,6 +131,10 @@ geodésicas, salvar/URL, editor visual de cena, embedding.
 
 ## Etapa 3 — ♯ e ♭ lado a lado
 
+**Estado:** construída. O plano euclidiano entrou como quarto exemplo e é o controle experimental:
+ali $v^\flat$ tem exatamente os mesmos números que $v$ e as folhas saem perpendiculares à seta no
+desenho; na esfera os números divergem e a perpendicularidade some. Duas ressalvas honestas abaixo.
+
 **Objetivo:** mostrar que $v$ e $v^\flat$ são o mesmo objeto em duas representações, e que essa
 distinção só é visível porque a métrica não é euclidiana (compromisso #2 do projeto).
 
@@ -148,6 +152,20 @@ distinção só é visível porque a métrica não é euclidiana (compromisso #2
   padrão-ouro (inclusive o caso euclidiano, onde ♯/♭ devem ser identidade numérica).
 - Visual: no grid euclidiano, $v$ e $v^\flat$ desenhados devem se sobrepor exatamente; na esfera,
   visivelmente não.
+
+**Duas ressalvas do que foi construído:**
+
+1. **A comparação é por troca de exemplo, não lado a lado.** O escopo pedia as duas cenas
+   simultâneas; o que existe é um seletor que alterna entre euclidiano e esfera com o controle da
+   morfose preservado. Lado a lado de verdade exigiria duas instâncias da cena na tela ao mesmo
+   tempo, o que é reestruturação do layout, não ajuste. Fica em aberto se compensa.
+2. **Na esfera, a pilha de $v^\flat$ é rala por geometria, não por bug.** O espaçamento das folhas
+   de $v^\flat$ é $1/|v|_g$, e o pedaço visível da superfície tem raio $\approx 0{,}5$, então
+   $|v|_g \le 0{,}5$ e as folhas ficam mais afastadas que a própria vizinhança desenhada — a seta
+   atravessa $|v|^2_g \approx 0{,}18$ de uma folha. Está correto e o numeral mostra a fração, mas
+   ali $v^\flat$ lê-se como *uma linha*, não como pilha. No euclidiano, onde a região visível é
+   maior, ela lê-se como pilha e a seta cruza duas folhas. Se isso atrapalhar o aluno, o conserto é
+   pedagógico (aumentar a vizinhança desenhada na esfera), não numérico.
 
 **O que deliberadamente não faz ainda:** ∧, d, colchete de Lie, transporte paralelo, geodésicas,
 salvar/URL, editor, embedding.

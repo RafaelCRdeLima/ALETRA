@@ -12,7 +12,7 @@
  * dois níveis de FD encadeados, o ruído de arredondamento do nível de dentro
  * é dividido pelo passo de fora, e h ~ 1e-4 equilibra melhor que h ~ 1e-5.
  */
-import { determinant } from './christoffel-fd';
+import { determinant } from './linalg';
 import { christoffelIndex, type ChristoffelFn, type MetricFn } from './metric';
 
 export const DEFAULT_H_CURVATURE = 1e-4;

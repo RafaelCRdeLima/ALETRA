@@ -13,7 +13,7 @@
  * heurístico — ele decide por taxa de crescimento, não por prova — e serve para
  * rotular a interface, não para fundamentar uma afirmação matemática.
  */
-import { determinant } from './christoffel-fd';
+import { determinant } from './linalg';
 import { gaussianCurvature } from './curvature';
 import type { ChristoffelFn, MetricFn } from './metric';
 

@@ -60,6 +60,31 @@ export const SPHERE_EXAMPLE: MetricExample = {
   note: 'Curvatura constante K = 1. Os polos θ=0 e θ=π são singularidades de coordenada.',
 };
 
+/**
+ * O plano euclidiano é o controle experimental da Etapa 3.
+ *
+ * Com g = δ, ♭ e ♯ são a identidade numérica: v♭ tem exatamente os mesmos
+ * componentes que v. Não é um caso degenerado nem um exemplo fraco — é a razão
+ * pela qual quem só trabalhou em ℝⁿ nunca precisou distinguir vetor de covetor,
+ * e sem ele o aluno não tem contra o que comparar a esfera.
+ */
+export const EUCLIDEAN_EXAMPLE: MetricExample = {
+  id: 'euclidiano',
+  label: 'Plano euclidiano',
+  chart: chart(['x', 'y']),
+  components: ['1', '0', '1'],
+  bounds: { min: [-3, -3], max: [3, 3] },
+  initialPoint: [0, 0],
+  initialVector: [1.2, 0.7],
+  initialOmega: [1.5, 0.8],
+  maxVector: 2.2,
+  closedCurvature: () => 0,
+  embedding: null,
+  note:
+    'Curvatura zero, e ♭ não faz nada: v♭ tem os mesmos números que v. ' +
+    'É por isso que em ℝ² ninguém precisa distinguir vetor de covetor.',
+};
+
 export const HYPERBOLIC_EXAMPLE: MetricExample = {
   id: 'hiperbolico',
   label: 'Plano hiperbólico (semiplano superior)',
@@ -95,6 +120,7 @@ export const SCHWARZSCHILD_EXAMPLE: MetricExample = {
 
 export const EXAMPLES: readonly MetricExample[] = [
   SPHERE_EXAMPLE,
+  EUCLIDEAN_EXAMPLE,
   HYPERBOLIC_EXAMPLE,
   SCHWARZSCHILD_EXAMPLE,
 ];

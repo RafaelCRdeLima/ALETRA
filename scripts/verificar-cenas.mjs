@@ -88,6 +88,47 @@ console.log('\n— componentes do vetor —');
 await page.reload({ waitUntil: 'networkidle' });
 await page.waitForSelector('.chart-panel .folha');
 
+// Etapa 3: a tese é que ♭ só faz alguma coisa porque a métrica não é euclidiana.
+// Se v♭ diferisse de v no plano euclidiano, ou coincidisse na esfera, a etapa
+// inteira estaria mentindo.
+console.log('\n— ♯ e ♭ —');
+for (const id of ['euclidiano', 'esfera']) {
+  await page.selectOption('#seletor', id);
+  await page.waitForTimeout(500);
+  const campos = page.locator('#campos-vetor input');
+  const v = [await campos.nth(0).inputValue(), await campos.nth(1).inputValue()];
+  const texto = (await page.textContent('#v-bemol')).trim();
+  const bemol = texto.match(/\(([^;]+);([^)]+)\)/).slice(1, 3).map((s) => s.trim());
+  const iguais = v[0] === bemol[0] && v[1] === bemol[1];
+  const esperado = id === 'euclidiano';
+  console.log(
+    `${id}: v=(${v.join(' ; ')})  v♭=(${bemol.join(' ; ')})  ` +
+      `${iguais === esperado ? '✓' : '✗ INESPERADO'} ${iguais ? 'coincidem' : 'diferem'}`,
+  );
+}
+
+// A morfose tem de fazer a pilha de v♭ aparecer e a de ω recuar.
+{
+  await page.locator('#bemol').fill('1');
+  await page.waitForTimeout(600);
+  const folhasBemol = await page.locator('.chart-panel .folha-bemol').count();
+  const opacidadeOmega = await page
+    .locator('.chart-panel .folha')
+    .first()
+    .getAttribute('opacity');
+  await page.screenshot({ path: `${OUT}/bemol-esfera.png` });
+  await page.selectOption('#seletor', 'euclidiano');
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: `${OUT}/bemol-euclidiano.png` });
+  console.log(
+    `morfose em 1: folhas de v♭ = ${folhasBemol}, opacidade de ω = ${Number(opacidadeOmega).toFixed(2)}`,
+  );
+  await page.locator('#bemol').fill('0');
+  await page.waitForTimeout(300);
+}
+await page.selectOption('#seletor', 'esfera');
+await page.waitForTimeout(400);
+
 // D7 ao vivo: arrastar o ponto contra o polo tem de recusar o movimento e dizer
 // que ali a carta falha — não que a geometria falha.
 await page.selectOption('#seletor', 'esfera');

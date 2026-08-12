@@ -24,7 +24,8 @@ export {
   parse,
   type Node,
 } from './expr';
-export { DEFAULT_H, christoffelFromMetric, determinant, invert } from './christoffel-fd';
+export { DEFAULT_H, christoffelFromMetric } from './christoffel-fd';
+export { determinant, invert } from './linalg';
 export { DEFAULT_H_CURVATURE, gaussianCurvature } from './curvature';
 export {
   degeneracyMask,
@@ -40,7 +41,10 @@ export {
   upperTriangleCount,
   type MetricSource,
 } from './metric-expr';
+// Etapa 3 — ♯ e ♭: o mesmo objeto em duas notações.
+export { flat, flatForm, sharp, sharpVector } from './musical';
 export {
+  EUCLIDEAN_EXAMPLE,
   EXAMPLES,
   HYPERBOLIC_EXAMPLE,
   SCHWARZSCHILD_EXAMPLE,

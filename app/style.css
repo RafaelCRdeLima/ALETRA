@@ -173,6 +173,17 @@ body {
   stroke-linecap: round;
 }
 
+/*
+ * A pilha de v♭ tem a mesma geometria da de ω — mesma espessura, mesmo traço,
+ * mesmo véu. Só a cor muda, e ela é a cor do vetor: v♭ *é* v, e o desenho não
+ * deve sugerir que virou um bicho de outra espécie.
+ */
+.folha-bemol {
+  stroke: var(--ink);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
 .folha-zero {
   stroke-width: 4.5;
 }
@@ -293,6 +304,28 @@ text.tick.fim {
 
 .campo-vetor input {
   width: 5.2rem;
+}
+
+/* v♭ é derivado de v pela métrica — leitura, não campo editável. */
+.derivado {
+  margin: 0.45rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.derivado b {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.morfose {
+  display: grid;
+  grid-template-columns: 3.4rem 1fr;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.45rem;
+  font-size: 0.82rem;
 }
 
 .campo input {

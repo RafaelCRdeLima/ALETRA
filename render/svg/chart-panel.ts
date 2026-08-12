@@ -24,11 +24,21 @@ import type { ChartBounds } from '../../core/degenerate';
 
 const NS = 'http://www.w3.org/2000/svg';
 
+/**
+ * Uma pilha a desenhar. São várias a partir da Etapa 3: ω e v♭ convivem na
+ * mesma carta, e o que os distingue é a cor e a opacidade — não a geometria,
+ * porque *são* a mesma espécie de objeto. É esse o ponto da etapa.
+ */
+export interface StackLayer {
+  readonly components: Float64Array;
+  readonly classe: string;
+  readonly opacidade: number;
+}
+
 export interface ChartPanelState {
   readonly bounds: ChartBounds;
   readonly names: readonly string[];
-  /** Componentes de ω na base coordenada. */
-  readonly omega: Float64Array;
+  readonly stacks: readonly StackLayer[];
   readonly point: Float64Array;
   readonly vector: Float64Array;
   /** Máscara quadrada de degeneração (1 = não serve), ou null. */
@@ -213,15 +223,12 @@ export function createChartPanel(callbacks: ChartPanelCallbacks): ChartPanel {
   }
 
   /**
-   * As folhas de ω. Na carta são retas: ω_i (x - p)^i = k.
+   * As pilhas. Na carta são retas: ω_i (x - p)^i = k, para cada 1-form.
    * O véu radial centrado em p reproduz D10 no 2D — a folha aparece perto de
-   * onde a contração é lida e some longe dela.
+   * onde a contração é lida e some longe dela, e é compartilhado por todas as
+   * camadas porque a localidade é do ponto, não da forma.
    */
   function drawStack(state: ChartPanelState): void {
-    const [w0, w1] = [state.omega[0]!, state.omega[1]!];
-    const normSq = w0 * w0 + w1 * w1;
-    if (normSq < 1e-12) return;
-
     const box = plot();
     const [px, py] = toPixel(state, Array.from(state.point));
     const veuRect = defs.querySelector('#veu-rect');
@@ -231,6 +238,16 @@ export function createChartPanel(callbacks: ChartPanelCallbacks): ChartPanel {
     veuRect?.setAttribute('width', String(radius * 2));
     veuRect?.setAttribute('height', String(radius * 2));
     layers.stack.setAttribute('mask', 'url(#veu-mask)');
+
+    for (const camada of state.stacks) {
+      if (camada.opacidade > 0.01) drawLayer(state, camada);
+    }
+  }
+
+  function drawLayer(state: ChartPanelState, camada: StackLayer): void {
+    const [w0, w1] = [camada.components[0]!, camada.components[1]!];
+    const normSq = w0 * w0 + w1 * w1;
+    if (normSq < 1e-12) return;
 
     const { min, max } = state.bounds;
     const corners = [
@@ -253,12 +270,13 @@ export function createChartPanel(callbacks: ChartPanelCallbacks): ChartPanel {
     }
 
     for (let k = Math.ceil(lo); k <= Math.floor(hi); k++) {
-      const segment = clipLevelLine(state, k, normSq);
+      const segment = clipLevelLine(state, camada.components, k, normSq);
       if (!segment) continue;
       const [a, b] = segment;
       const [ax, ay] = toPixel(state, a);
       const [bx, by] = toPixel(state, b);
-      const el = line(ax, ay, bx, by, k === 0 ? 'folha folha-zero' : 'folha');
+      const el = line(ax, ay, bx, by, `${camada.classe}${k === 0 ? ' folha-zero' : ''}`);
+      el.setAttribute('opacity', String(camada.opacidade));
       layers.stack.appendChild(el);
     }
   }
@@ -266,10 +284,11 @@ export function createChartPanel(callbacks: ChartPanelCallbacks): ChartPanel {
   /** Recorta a reta de nível k no retângulo da carta (Liang-Barsky). */
   function clipLevelLine(
     state: ChartPanelState,
+    components: Float64Array,
     k: number,
     normSq: number,
   ): [number[], number[]] | null {
-    const [w0, w1] = [state.omega[0]!, state.omega[1]!];
+    const [w0, w1] = [components[0]!, components[1]!];
     const anchor = [
       state.point[0]! + (k * w0) / normSq,
       state.point[1]! + (k * w1) / normSq,

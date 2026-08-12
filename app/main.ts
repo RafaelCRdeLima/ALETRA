@@ -3,6 +3,7 @@ import { christoffelFromMetric } from '../core/christoffel-fd';
 import { degeneracyMask, probeMetric, type MetricProbe } from '../core/degenerate';
 import { EXAMPLES, exampleById, type MetricExample } from '../core/examples';
 import { evaluate, form, type Form } from '../core/forms';
+import { flatForm } from '../core/musical';
 import { ParseError } from '../core/expr';
 import { normSquared, type ChristoffelFn, type MetricFn } from '../core/metric';
 import { compileMetric, componentIndices } from '../core/metric-expr';
@@ -52,6 +53,15 @@ const ptBR = (n: number): string =>
  */
 const params = new URLSearchParams(window.location.search);
 const MODO_LIMPO = params.get('limpo') === '1';
+
+/**
+ * A morfose de v para v♭, em [0, 1] (Etapa 3).
+ *
+ * Mora fora de `Scene` de propósito: é uma escolha de *vista*, não um dado da
+ * cena. Trocar de superfície para comparar euclidiano com esfera — que é o
+ * gesto central desta etapa — não pode desfazer a posição do controle.
+ */
+let bemol = 0;
 
 let scene: Scene = buildScene(exampleById(params.get('exemplo') ?? ''));
 
@@ -112,8 +122,9 @@ if (MODO_LIMPO) stage.camera.position.multiplyScalar(0.82);
 const veil = veilTexture();
 const tangentGroup = new THREE.Group();
 const stackGroup = new THREE.Group();
+const bemolGroup = new THREE.Group();
 const vectorGroup = new THREE.Group();
-stage.scene.add(tangentGroup, stackGroup, vectorGroup);
+stage.scene.add(tangentGroup, stackGroup, bemolGroup, vectorGroup);
 
 const pointHandle = new THREE.Mesh(
   new THREE.SphereGeometry(0.045, 24, 16),
@@ -135,7 +146,31 @@ let frame: TangentFrame = sphereFrame(R, scene.x);
 /** Enquanto false, o laço de animação não gasta frame com um canvas escondido. */
 let painelAtivo = true;
 
-function render3D(value: number, active: boolean): void {
+/**
+ * As opacidades da morfose (Etapa 3).
+ *
+ * A seta nunca some de todo: some ela e o aluno vê duas pilhas trocando de cor,
+ * em vez de um objeto mudando de notação. ω escurece mas fica, porque o numeral
+ * ⟨ω,v⟩ continua na tela e um número sem referente visível é o que este produto
+ * existe para não fazer.
+ */
+function opacidades(): { omega: number; bemol: number; seta: number } {
+  return {
+    omega: 0.92 * (1 - 0.8 * bemol),
+    bemol: 0.95 * bemol,
+    seta: 1 - 0.68 * bemol,
+  };
+}
+
+/** Componentes só entram no desenho se forem finitos — métrica degenerada dá NaN. */
+function finitos(components: Float64Array): Float64Array {
+  for (let i = 0; i < components.length; i++) {
+    if (!Number.isFinite(components[i]!)) return new Float64Array(components.length);
+  }
+  return components;
+}
+
+function render3D(value: number, active: boolean, vBemol: Form): void {
   painelAtivo = active;
   stage.renderer.domElement.style.display = active ? '' : 'none';
   for (const object of [tangentGroup, stackGroup, vectorGroup, pointHandle, tipHandle]) {
@@ -157,6 +192,8 @@ function render3D(value: number, active: boolean): void {
   disposeChildren(tangentGroup);
   tangentGroup.add(tangentDisc(frame), ...basisArrows(frame));
 
+  const opa = opacidades();
+
   disposeChildren(stackGroup);
   stackGroup.add(
     buildStack(scene.omega, frame, veil, {
@@ -164,9 +201,22 @@ function render3D(value: number, active: boolean): void {
       maxSheets: 14,
       thickness: 0.13,
       color: PALETTE.brand,
-      opacity: 0.92,
+      opacity: opa.omega,
     }),
   );
+
+  disposeChildren(bemolGroup);
+  if (opa.bemol > 0.01) {
+    bemolGroup.add(
+      buildStack(form(DIM, 1, Array.from(finitos(vBemol.components))), frame, veil, {
+        radius: DISC_RADIUS,
+        maxSheets: 14,
+        thickness: 0.13,
+        color: PALETTE.vector,
+        opacity: opa.bemol,
+      }),
+    );
+  }
 
   disposeChildren(vectorGroup);
   vectorGroup.add(
@@ -176,6 +226,7 @@ function render3D(value: number, active: boolean): void {
       headRadius: 0.04,
       colorWhole: PALETTE.vector,
       colorFraction: PALETTE.fraction,
+      opacity: opa.seta,
     }),
   );
 
@@ -300,6 +351,37 @@ function paintNumeral(value: number): void {
   );
 }
 
+const forte = (texto: string): HTMLElement => {
+  const b = document.createElement('b');
+  b.textContent = texto;
+  return b;
+};
+
+/**
+ * A leitura de v♭ — os mesmos componentes de v passados pela métrica.
+ *
+ * É aqui que a Etapa 3 fica literal: no plano euclidiano estes números são
+ * idênticos aos de v, e na esfera não são. O aluno não precisa acreditar que a
+ * métrica faz diferença; ele lê a diferença, e vê os dois casos trocando o
+ * seletor de superfície.
+ *
+ * |v|² é ⟨v♭, v⟩, ou seja quantas folhas de v♭ a própria seta atravessa.
+ */
+function paintBemol(vBemol: Form): void {
+  const alvo = el('v-bemol');
+  const [b0, b1] = [vBemol.components[0] ?? 0, vBemol.components[1] ?? 0];
+  const normaQuadrada = evaluate(vBemol, [scene.v]);
+
+  alvo.replaceChildren(
+    'v♭ = (',
+    forte(ptBR(b0)),
+    ' ; ',
+    forte(ptBR(b1)),
+    ') · |v|² = ',
+    forte(ptBR(normaQuadrada)),
+  );
+}
+
 // ------------------------------------------------------------------- update
 
 function update(): void {
@@ -312,6 +394,8 @@ function update(): void {
   document.body.classList.toggle('sem-mergulho', !comMergulho);
 
   const value = evaluate(scene.omega, [scene.v]);
+  const vBemol = flatForm(scene.metric, scene.x, scene.v, DIM);
+  const opa = opacidades();
 
   // No modo limpo a carta só aparece quando não há mergulho. Desenhar num painel
   // escondido custaria uma reconstrução de SVG por arraste, à toa.
@@ -319,7 +403,10 @@ function update(): void {
     chartPanel.render({
       bounds: scene.example.bounds,
       names: scene.example.chart.symbols,
-      omega: scene.omega.components,
+      stacks: [
+        { components: scene.omega.components, classe: 'folha', opacidade: opa.omega },
+        { components: finitos(vBemol.components), classe: 'folha-bemol', opacidade: opa.bemol },
+      ],
       point: scene.x,
       vector: scene.v,
       mask: scene.mask,
@@ -329,8 +416,9 @@ function update(): void {
     });
   }
 
-  render3D(value, comMergulho);
+  render3D(value, comMergulho, vBemol);
   paintNumeral(value);
+  paintBemol(vBemol);
   syncVectorFields();
 
   const erro = el<HTMLParagraphElement>('erro-metrica');
@@ -542,6 +630,10 @@ el<HTMLSelectElement>('seletor').value = scene.example.id;
 buildMetricFields();
 buildVectorFields();
 bindOmega();
+el<HTMLInputElement>('bemol').addEventListener('input', (event) => {
+  bemol = Number((event.target as HTMLInputElement).value);
+  update();
+});
 syncOmegaControls();
 update();
 new ResizeObserver(() => update()).observe(el('carta-corpo'));

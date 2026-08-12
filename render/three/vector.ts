@@ -16,6 +16,8 @@ export interface VectorOptions {
   readonly headRadius: number;
   readonly colorWhole: THREE.ColorRepresentation;
   readonly colorFraction: THREE.ColorRepresentation;
+  /** Usada pela morfose da Etapa 3: a seta desbota enquanto v♭ aparece. */
+  readonly opacity?: number;
 }
 
 export function buildVector(
@@ -47,16 +49,23 @@ export function buildVector(
   // a reconciliação que D11 existe para evitar.
   const hasFraction = Number.isFinite(value) && Math.abs(fraction) > 1e-6;
 
+  const opacity = opts.opacity ?? 1;
+  const transparent = opacity < 1;
+
   const wholeMaterial = new THREE.MeshStandardMaterial({
     color: opts.colorWhole,
     roughness: 0.35,
     metalness: 0.0,
+    transparent,
+    opacity,
   });
   const fractionMaterial = new THREE.MeshStandardMaterial({
     color: opts.colorFraction,
     roughness: 0.3,
     metalness: 0.0,
     emissive: new THREE.Color(opts.colorFraction).multiplyScalar(0.35),
+    transparent,
+    opacity,
   });
 
   const base = frame.point;
