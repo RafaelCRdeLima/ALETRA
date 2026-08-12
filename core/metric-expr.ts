@@ -42,6 +42,59 @@ export function componentLabel(chart: Chart, index: number): string {
  * componente na frente, porque "erro em g_θφ: não conheço 'sen'" é acionável e
  * "SyntaxError at 4" não é.
  */
+/**
+ * Compila uma lista de expressões com a gramática fechada de D4, nomeando o
+ * componente que falhou.
+ *
+ * "erro em g_θφ: não conheço 'sen'" é acionável; "SyntaxError at 4" não é. O
+ * rótulo vem de fora porque o mesmo compilador serve à métrica, à 1-form digitada
+ * da Etapa 6 e à função de que ela é o diferencial.
+ */
+function compilarExpressoes(
+  chart: Chart,
+  textos: readonly string[],
+  rotulo: (indice: number) => string,
+): Node[] {
+  return textos.map((text, index) => {
+    try {
+      return parse(text, chart.names);
+    } catch (error) {
+      if (error instanceof ParseError) {
+        throw new ParseError(`erro em ${rotulo(index)}: ${error.message}`, error.position);
+      }
+      throw error;
+    }
+  });
+}
+
+/**
+ * Uma 0-form digitada: um número em cada ponto.
+ *
+ * A Etapa 6 precisa disto porque d de componentes constantes é zero — para haver
+ * derivada exterior, ω tem de ser um *campo*. E um campo que o aluno digita passa
+ * exatamente pelo mesmo parser da métrica, então nenhuma superfície de ataque
+ * nova entra com aquela etapa.
+ */
+export function compileScalar(chart: Chart, texto: string): (x: Float64Array) => number {
+  const [arvore] = compilarExpressoes(chart, [texto], () => 'f');
+  return (x) => evaluateNode(arvore!, x);
+}
+
+/** Uma 1-form digitada como campo: componentes em cada ponto. */
+export function compileFormField(
+  chart: Chart,
+  componentes: readonly string[],
+): (x: Float64Array, out: Float64Array) => void {
+  const arvores = compilarExpressoes(
+    chart,
+    componentes,
+    (i) => `ω_${chart.symbols[i] ?? i}`,
+  );
+  return (x, out) => {
+    for (let i = 0; i < arvores.length; i++) out[i] = evaluateNode(arvores[i]!, x);
+  };
+}
+
 export function compileMetric(source: MetricSource): MetricFn {
   const { chart, components } = source;
   const expected = upperTriangleCount(chart.dim);
@@ -52,19 +105,7 @@ export function compileMetric(source: MetricSource): MetricFn {
     );
   }
 
-  const trees: Node[] = components.map((text, index) => {
-    try {
-      return parse(text, chart.names);
-    } catch (error) {
-      if (error instanceof ParseError) {
-        throw new ParseError(
-          `erro em ${componentLabel(chart, index)}: ${error.message}`,
-          error.position,
-        );
-      }
-      throw error;
-    }
-  });
+  const trees = compilarExpressoes(chart, components, (i) => componentLabel(chart, i));
 
   const n = chart.dim;
   return (x, out) => {

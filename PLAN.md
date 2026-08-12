@@ -263,6 +263,17 @@ grau desde a Etapa 1, então esta etapa não precisa de estrutura nova — só d
 
 ## Etapa 6 — d, derivada exterior
 
+**Estado:** construída. ω passa a ser um **campo digitado** neste modo — sem isso não há derivada
+para desenhar, já que $d$ de componentes constantes é zero. As células de $d\omega$ contam a
+circulação, e marcar "usar $\omega = df$" faz o ladrilho sumir da tela: o zero é desenhado, não
+afirmado.
+
+**Ajuste de escopo, com motivo:** o `PLAN.md` pedia aplicar $d$ duas vezes sobre uma 1-form. Numa
+superfície isso é **vacuamente** zero — $d\omega$ já é top-degree e não existem 3-forms, então o
+zero viria da dimensão e não da geometria, e não demonstraria nada. A afirmação com conteúdo começa
+uma casa antes: $f$ é função, $df$ é 1-form, e $d(df)=0$ é uma 2-form que *poderia* ser diferente
+de zero e não é. É essa a que o produto desenha colapsando.
+
 **Objetivo:** construção de Bachman (circulação em torno de célula infinitesimal), com $d^2=0$
 visivelmente óbvio, não só demonstrável por álgebra.
 

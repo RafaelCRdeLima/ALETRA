@@ -170,7 +170,7 @@ console.log('\n— ∧ e a contagem de células —');
 {
   await page.selectOption('#seletor', 'euclidiano');
   await page.waitForTimeout(400);
-  await page.locator('#modo').click();
+  await page.selectOption('#modo', 'duas');
   await page.waitForTimeout(600);
 
   const num = (t) => Number(t.replace(/\./g, '').replace(',', '.'));
@@ -244,7 +244,70 @@ console.log('\n— ∧ e a contagem de células —');
       `${Math.abs(trocado + mostrado) < 0.02 ? '✓ inverteu' : '✗ NÃO INVERTEU'}`,
   );
 
-  await page.locator('#modo').click();
+  await page.selectOption('#modo', 'uma');
+  await page.waitForTimeout(300);
+}
+
+// Etapa 6: d. O critério é o zero de d² aparecer *no desenho* — as células
+// acabando — e não como um texto dizendo que deu zero.
+console.log('\n— d e o colapso de d² —');
+{
+  await page.selectOption('#seletor', 'euclidiano');
+  await page.selectOption('#modo', 'derivada');
+  await page.waitForTimeout(700);
+
+  const num = (t) => Number(t.replace(/\./g, '').replace(',', '.'));
+  const lerNumeral = async () => num((await page.textContent('#numeral-value')).trim());
+  const pintadas = async () =>
+    ((await page.locator('.camada-celula polygon').getAttribute('fill')) ?? '').includes(
+      'url(#celulas)',
+    );
+
+  const u = [
+    num(await page.locator('#campos-u input').nth(0).inputValue()),
+    num(await page.locator('#campos-u input').nth(1).inputValue()),
+  ];
+  const v = [
+    num(await page.locator('#campos-vetor input').nth(0).inputValue()),
+    num(await page.locator('#campos-vetor input').nth(1).inputValue()),
+  ];
+  // ω = (1-y) dx + x dy  ⟹  dω = 2 dx∧dy (a constante não sobrevive à derivada)
+  const esperado = 2 * (u[0] * v[1] - u[1] * v[0]);
+  const circulacao = await lerNumeral();
+  const omegaLido = `${await page.locator('#campo-omega-0').inputValue()}, ${await page
+    .locator('#campo-omega-1')
+    .inputValue()}`;
+  console.log(`  rótulo: ${(await page.textContent('#numeral-label')).trim()}`);
+  console.log(
+    `  ω = (${omegaLido}) → dω(u,v) = ${circulacao.toFixed(2)}, esperado ${esperado.toFixed(2)}  ` +
+      `${Math.abs(circulacao - esperado) < 0.02 ? '✓' : '✗ DIVERGE'}`,
+  );
+  console.log(`  células pintadas: ${(await pintadas()) ? '✓ há o que contar' : '✗'}`);
+  await page.screenshot({ path: `${OUT}/derivada.png` });
+
+  // d² = 0: trocar ω por df tem de zerar a circulação e apagar o ladrilho.
+  await page.locator('#usar-df').check();
+  await page.waitForTimeout(700);
+  const depois = await lerNumeral();
+  const aindaPintadas = await pintadas();
+  console.log(
+    `  ω = df → dω(u,v) = ${depois.toFixed(4)}  ` +
+      `${Math.abs(depois) < 0.01 ? '✓ colapsou' : '✗ NÃO COLAPSOU'}; ` +
+      `células pintadas: ${aindaPintadas ? '✗ ainda há ladrilho' : '✓ ladrilho sumiu'}`,
+  );
+  await page.screenshot({ path: `${OUT}/derivada-d2.png` });
+
+  // Trocar de carta não pode deixar uma expressão em x,y numa carta (θ,φ).
+  await page.locator('#usar-df').uncheck();
+  await page.selectOption('#seletor', 'esfera');
+  await page.waitForTimeout(700);
+  const erro = (await page.textContent('#erro-metrica'))?.trim();
+  console.log(
+    `  troca para a esfera: ω = (${await page.locator('#campo-omega-0').inputValue()}, ` +
+      `${await page.locator('#campo-omega-1').inputValue()}), erro="${erro}"`,
+  );
+
+  await page.selectOption('#modo', 'uma');
   await page.waitForTimeout(300);
 }
 
@@ -333,14 +396,19 @@ for (const [w, h] of [
   );
   // O modo 2-form acrescenta dois blocos de controle. Se a barra transbordar,
   // ela corta um controle pelo meio — foi o que aconteceu na primeira versão.
-  await p.locator('#modo').click();
-  await p.waitForTimeout(400);
-  const cortado = await p.evaluate(() => {
-    const c = document.getElementById('controles');
-    return c.scrollHeight > c.clientHeight + 1;
-  });
-  await p.screenshot({ path: `${OUT}/layout-${w}x${h}-2form.png` });
-  await p.locator('#modo').click();
+  // Os modos com células acrescentam blocos de controle; o de derivada é o que
+  // acrescenta mais. Se a barra transbordar, corta um controle pelo meio.
+  let cortado = false;
+  for (const m of ['duas', 'derivada']) {
+    await p.selectOption('#modo', m);
+    await p.waitForTimeout(400);
+    cortado ||= await p.evaluate(() => {
+      const c = document.getElementById('controles');
+      return c.scrollHeight > c.clientHeight + 1;
+    });
+    await p.screenshot({ path: `${OUT}/layout-${w}x${h}-${m}.png` });
+  }
+  await p.selectOption('#modo', 'uma');
   await p.waitForTimeout(200);
 
   console.log(

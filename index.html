@@ -20,7 +20,11 @@
         <span>ÁLETRA</span>
       </h1>
       <select id="seletor" aria-label="Superfície"></select>
-      <button id="modo" type="button" aria-pressed="false">∧ ver 2-form</button>
+      <select id="modo" aria-label="Leitura">
+        <option value="uma">⟨ω, v⟩ — contar folhas</option>
+        <option value="duas">(ω∧η)(u, v) — contar células</option>
+        <option value="derivada">dω(u, v) — circulação</option>
+      </select>
       <button id="copiar" type="button">copiar link</button>
       <div id="numeral" aria-live="polite">
         <span class="numeral-label" id="numeral-label">⟨ω, v⟩</span>
@@ -65,6 +69,26 @@
         <div id="campos-u"></div>
       </div>
 
+      <div class="bloco so-derivada">
+        <span class="bloco-titulo">Campo ω, e a função f</span>
+        <div class="campo">
+          <span>ω<sub id="sub-campo-0">0</sub> =</span>
+          <input id="campo-omega-0" type="text" spellcheck="false" value="-y" />
+        </div>
+        <div class="campo">
+          <span>ω<sub id="sub-campo-1">1</sub> =</span>
+          <input id="campo-omega-1" type="text" spellcheck="false" value="x" />
+        </div>
+        <div class="campo">
+          <span>f =</span>
+          <input id="campo-f" type="text" spellcheck="false" value="x*y" />
+        </div>
+        <label class="alternativa">
+          <input id="usar-df" type="checkbox" />
+          <span>usar ω = df</span>
+        </label>
+      </div>
+
       <div class="bloco so-duas-formas">
         <span class="bloco-titulo">One-form η</span>
         <label>
@@ -79,7 +103,7 @@
         </label>
       </div>
 
-      <div class="bloco">
+      <div class="bloco bloco-omega">
         <span class="bloco-titulo">One-form ω</span>
         <label>
           <span id="rotulo-omega-0">ω₀</span>

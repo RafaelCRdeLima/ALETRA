@@ -126,7 +126,13 @@ describe('recusa de entrada malformada', () => {
   });
 
   it('recusa modo desconhecido', () => {
-    recusa({ modo: 'tres' }, /só "uma" ou "duas"/);
+    recusa({ modo: 'tres' }, /só "uma", "duas" ou "derivada"/);
+  });
+
+  it('aceita os três modos conhecidos', () => {
+    for (const modo of ['uma', 'duas', 'derivada'] as const) {
+      expect(sceneFromText(JSON.stringify({ ...BASE, modo })).modo).toBe(modo);
+    }
   });
 
   it('recusa texto longo demais — o campo não é um canal de carga', () => {

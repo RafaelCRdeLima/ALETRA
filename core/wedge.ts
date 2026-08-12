@@ -70,6 +70,22 @@ export function cellArea(sigma: number): number {
  * Devolve null quando ω e η são paralelos: aí σ = 0, não há célula finita, e
  * não há o que ladrilhar.
  */
+/**
+ * Célula de uma 2-form dada só pela densidade, sem fatoração à mão.
+ *
+ * A Etapa 6 precisa disto: dω sai como um número σ, e não vem acompanhada de um
+ * par de 1-forms que sugira um formato. Como a 2-form não tem grade preferida
+ * (a forma nunca foi dela — ver `cellEdges`), qualquer paralelogramo de área
+ * 1/|σ| serve, e o quadrado alinhado aos eixos é a escolha que menos inventa.
+ */
+export function cellEdgesFromDensity(
+  sigma: number,
+): { a: [number, number]; b: [number, number] } | null {
+  if (!Number.isFinite(sigma) || Math.abs(sigma) < 1e-12) return null;
+  const lado = Math.sqrt(1 / Math.abs(sigma));
+  return { a: [lado, 0], b: [0, sigma < 0 ? -lado : lado] };
+}
+
 export function cellEdges(
   omega: Form,
   eta: Form,

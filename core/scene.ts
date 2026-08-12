@@ -33,8 +33,8 @@ export interface SceneDoc {
   /** Segunda 1-form e segundo vetor: a 2-form da Etapa 5 é ω ∧ η, lida em (u, v). */
   readonly eta: readonly number[];
   readonly u: readonly number[];
-  /** Qual leitura a cena abre mostrando. */
-  readonly modo: 'uma' | 'duas';
+  /** Qual leitura a cena abre mostrando: folhas, células, ou circulação. */
+  readonly modo: 'uma' | 'duas' | 'derivada';
   readonly maxVetor: number;
   /** Morfose v ⇄ v♭ da Etapa 3, em [0, 1]. */
   readonly bemol: number;
@@ -141,8 +141,8 @@ export function sceneFromUnknown(bruto: unknown): SceneDoc {
   // paralelo a ω daria ω∧η = 0 e um ladrilho sem células).
   const girar = (c: readonly number[]): number[] => [-c[1]!, c[0]!];
   const modo = o['modo'] ?? 'uma';
-  if (modo !== 'uma' && modo !== 'duas') {
-    throw new SceneError('cena.modo: só "uma" ou "duas" são conhecidos');
+  if (modo !== 'uma' && modo !== 'duas' && modo !== 'derivada') {
+    throw new SceneError('cena.modo: só "uma", "duas" ou "derivada" são conhecidos');
   }
 
   return {

@@ -11,7 +11,9 @@ import {
 import { sceneFromParam, sceneToParam, type SceneDoc } from '../core/scene';
 import { evaluate, form, type Form } from '../core/forms';
 import { flatForm } from '../core/musical';
-import { cellEdges, wedge } from '../core/wedge';
+import { cellEdges, cellEdgesFromDensity, wedge } from '../core/wedge';
+import { differential0, differential1, type FormField } from '../core/exterior';
+import { compileFormField, compileScalar } from '../core/metric-expr';
 import { ParseError } from '../core/expr';
 import { normSquared, type ChristoffelFn, type MetricFn } from '../core/metric';
 import { compileMetric, componentIndices } from '../core/metric-expr';
@@ -93,7 +95,42 @@ let bemol = 0;
  * número corresponde a qual desenho, que é exatamente o trabalho que este
  * produto existe para poupar.
  */
-let modo: 'uma' | 'duas' = params.get('modo') === '2' ? 'duas' : 'uma';
+type Modo = 'uma' | 'duas' | 'derivada';
+const MODOS: readonly Modo[] = ['uma', 'duas', 'derivada'];
+const paramModo = params.get('modo');
+let modo: Modo = MODOS.includes(paramModo as Modo) ? (paramModo as Modo) : 'uma';
+
+/**
+ * O campo ω e a função f da Etapa 6, como texto.
+ *
+ * São expressões e não constantes porque d de componentes constantes é zero: sem
+ * campo não há derivada exterior para desenhar. Os padrões são escolhidos para o
+ * primeiro olhar já mostrar alguma coisa — ω = -y dx + x dy circula (dω = 2), e
+ * f = x·y dá um df cujo d colapsa.
+ */
+const campoOmega = ['0', '0'];
+let funcaoF = '0';
+let usarDf = false;
+let erroCampo: string | null = null;
+
+/**
+ * Os padrões do campo vêm dos nomes da carta, não escritos à mão.
+ *
+ * `-y dx + x dy` só faz sentido numa carta que tenha x e y; na esfera daria erro
+ * de parse na primeira troca de superfície. Montando a partir de `chart.names`,
+ * o padrão nasce válido em qualquer carta — e continua sendo uma forma que
+ * circula (dω = 2), que é o que o primeiro olhar precisa mostrar.
+ *
+ * O `1 -` não é enfeite. Com ω = -y dx + x dy exato, o campo **vale zero** na
+ * origem, que é o ponto inicial do plano euclidiano: as células apareciam e a
+ * pilha de ω não, o que parece defeito e é geometria. A constante desloca ω sem
+ * mexer em dω — a derivada não vê constante — então a pilha aparece e a
+ * circulação continua sendo 2.
+ */
+function padroesDoCampo(nomes: readonly string[]): { omega: [string, string]; f: string } {
+  const [a, b] = [nomes[0] ?? 'x', nomes[1] ?? 'y'];
+  return { omega: [`1 - ${b}`, a], f: `${a}*${b}` };
+}
 
 /**
  * Uma cena vinda do endereço tem precedência sobre `?exemplo=`, e um endereço
@@ -241,7 +278,13 @@ function finitos(components: Float64Array): Float64Array {
   return components;
 }
 
-function render3D(value: number, active: boolean, vBemol: Form): void {
+function render3D(
+  value: number,
+  active: boolean,
+  vBemol: Form,
+  comCelulas: boolean,
+  omegaLocal: Form,
+): void {
   painelAtivo = active;
   stage.renderer.domElement.style.display = active ? '' : 'none';
   for (const object of [
@@ -275,7 +318,7 @@ function render3D(value: number, active: boolean, vBemol: Form): void {
 
   disposeChildren(stackGroup);
   stackGroup.add(
-    buildStack(scene.omega, frame, veil, {
+    buildStack(form(DIM, 1, Array.from(finitos(omegaLocal.components))), frame, veil, {
       radius: DISC_RADIUS,
       maxSheets: 14,
       thickness: 0.13,
@@ -287,9 +330,8 @@ function render3D(value: number, active: boolean, vBemol: Form): void {
   // No modo 2-form este grupo carrega η: a pilha dele cruza a de ω e o ladrilho
   // aparece no próprio plano tangente, que é plano — as células são coplanares
   // e a ressalva de D10 sobre profundidade não chega a valer aqui.
-  const duasFormas = modo === 'duas';
   disposeChildren(bemolGroup);
-  if (duasFormas) {
+  if (modo === 'duas') {
     bemolGroup.add(
       buildStack(scene.eta, frame, veil, {
         radius: DISC_RADIUS,
@@ -320,10 +362,10 @@ function render3D(value: number, active: boolean, vBemol: Form): void {
       colorWhole: PALETTE.vector,
       colorFraction: PALETTE.fraction,
       opacity: opa.seta,
-      showFraction: !duasFormas,
+      showFraction: !comCelulas,
     }),
   );
-  if (duasFormas) {
+  if (comCelulas) {
     vectorGroup.add(
       buildVector(frame, scene.u, 0, {
         shaftRadius: 0.014,
@@ -338,8 +380,8 @@ function render3D(value: number, active: boolean, vBemol: Form): void {
 
   pointHandle.position.copy(frame.point);
   tipHandle.position.copy(frame.point).add(toWorld(frame, scene.v));
-  uHandle.visible = duasFormas;
-  if (duasFormas) uHandle.position.copy(frame.point).add(toWorld(frame, scene.u));
+  uHandle.visible = comCelulas;
+  if (comCelulas) uHandle.position.copy(frame.point).add(toWorld(frame, scene.u));
 }
 
 const gScratch = new Float64Array(DIM * DIM);
@@ -449,7 +491,8 @@ function paintNumeral(value: number): void {
 
   // A unidade muda com o modo, mas a disciplina de D11 não: o inteiro é o que
   // foi atravessado ou cercado por completo, e a fração nunca some.
-  const [singular, plural] = modo === 'duas' ? ['célula', 'células'] : ['folha', 'folhas'];
+  const [singular, plural] =
+    modo === 'uma' ? ['folha', 'folhas'] : ['célula', 'células'];
   const inteiras = Math.abs(reading.whole);
   const resto = document.createElement('span');
   resto.className = 'frac';
@@ -497,6 +540,34 @@ function paintBemol(vBemol: Form): void {
   );
 }
 
+/**
+ * O campo ω do modo derivada: o que foi digitado, ou df da função digitada.
+ *
+ * O segundo caso é a demonstração de d² = 0. Marcar "usar ω = df" troca o campo
+ * por um que é, por construção, o diferencial de alguma coisa — e as células de
+ * dω somem da tela. O zero não é afirmado por texto: ele é o ladrilho acabando.
+ */
+function compilarCampo(): FormField | null {
+  try {
+    erroCampo = null;
+    if (!usarDf) return compileFormField(scene.example.chart, campoOmega);
+
+    const f = compileScalar(scene.example.chart, funcaoF);
+    return (x, out) => {
+      out.set(differential0(f, x, DIM).components);
+    };
+  } catch (error) {
+    erroCampo = error instanceof Error ? error.message : 'não consegui ler o campo';
+    return null;
+  }
+}
+
+function avaliarCampo(campo: FormField): Form {
+  const out = new Float64Array(DIM);
+  campo(scene.x, out);
+  return form(DIM, 1, Array.from(out));
+}
+
 // ------------------------------------------------------------------- update
 
 function update(): void {
@@ -513,9 +584,24 @@ function update(): void {
   document.body.classList.toggle('sem-mergulho', !comMergulho);
 
   const duasFormas = modo === 'duas';
-  const sigma = wedge(scene.omega, scene.eta);
-  const value = duasFormas
-    ? evaluate(sigma, [scene.u, scene.v])
+  const derivada = modo === 'derivada';
+  const comCelulas = duasFormas || derivada;
+
+  // No modo derivada ω é o campo digitado (ou df dele), avaliado em p para a
+  // pilha; a 2-form desenhada é dω, a circulação em torno da célula.
+  const campo = derivada ? compilarCampo() : null;
+  const dOmega = campo
+    ? // Passo externo maior quando ω já é df: as diferenças finitas se encadeiam,
+      // e o ruído do nível de dentro é dividido pelo passo de fora.
+      differential1(campo, scene.x, DIM, usarDf ? 1e-3 : undefined)
+    : null;
+  const omegaLocal = campo ? avaliarCampo(campo) : scene.omega;
+
+  const sigma = duasFormas ? wedge(scene.omega, scene.eta) : dOmega;
+  const value = comCelulas
+    ? sigma
+      ? evaluate(sigma, [scene.u, scene.v])
+      : 0
     : evaluate(scene.omega, [scene.v]);
   const vBemol = flatForm(scene.metric, scene.x, scene.v, DIM);
   const opa = opacidades();
@@ -523,10 +609,14 @@ function update(): void {
   // No modo 2-form a segunda camada é η, e o cruzamento das duas pilhas é o
   // ladrilho. No modo 1-form ela é v♭, que é a leitura da Etapa 3.
   const camadas = [
-    { components: scene.omega.components, classe: 'folha', opacidade: opa.omega },
+    { components: finitos(omegaLocal.components), classe: 'folha', opacidade: opa.omega },
     duasFormas
       ? { components: scene.eta.components, classe: 'folha-eta', opacidade: 0.92 }
-      : { components: finitos(vBemol.components), classe: 'folha-bemol', opacidade: opa.bemol },
+      : {
+          components: derivada ? new Float64Array(DIM) : finitos(vBemol.components),
+          classe: 'folha-bemol',
+          opacidade: derivada ? 0 : opa.bemol,
+        },
   ];
 
   // No modo limpo a carta só aparece quando não há mergulho. Desenhar num painel
@@ -536,27 +626,37 @@ function update(): void {
       bounds: scene.example.bounds,
       names: scene.example.chart.symbols,
       stacks: camadas,
-      cell: duasFormas
-        ? { u: scene.u, v: scene.v, lattice: cellEdges(scene.omega, scene.eta) }
+      cell: comCelulas
+        ? {
+            u: scene.u,
+            v: scene.v,
+            // Com ∧ o retículo vem da fatoração escolhida; com dω não há
+            // fatoração alguma, só a densidade — e aí o quadrado alinhado aos
+            // eixos é a escolha que menos inventa.
+            lattice: duasFormas
+              ? cellEdges(scene.omega, scene.eta)
+              : cellEdgesFromDensity(dOmega?.components[0] ?? 0),
+          }
         : null,
-      vectorU: duasFormas ? scene.u : null,
+      vectorU: comCelulas ? scene.u : null,
       point: scene.x,
       vector: scene.v,
       mask: scene.mask,
       maskResolution: MASK_RESOLUTION,
-      cut: duasFormas ? null : { value, whole: read(value).whole },
+      cut: comCelulas ? null : { value, whole: read(value).whole },
     });
   }
 
-  render3D(value, comMergulho, vBemol);
+  render3D(value, comMergulho, vBemol, comCelulas, omegaLocal);
   paintNumeral(value);
   paintBemol(vBemol);
   syncVectorFields();
   syncUFields();
 
   const erro = el<HTMLParagraphElement>('erro-metrica');
-  erro.hidden = scene.parseError === null;
-  erro.textContent = scene.parseError ?? '';
+  const mensagem = scene.parseError ?? (derivada ? erroCampo : null);
+  erro.hidden = mensagem === null;
+  erro.textContent = mensagem ?? '';
 
   const aviso = el<HTMLParagraphElement>('aviso-singularidade');
   aviso.hidden = scene.probe === null;
@@ -593,6 +693,7 @@ function buildSelector(): void {
     buildUFields();
     syncOmegaControls();
     syncEtaControls();
+    syncCampoLabels();
     update();
   });
 }
@@ -794,20 +895,65 @@ function syncEtaControls(): void {
   }
 }
 
+const ROTULO_NUMERAL: Readonly<Record<Modo, string>> = {
+  uma: '⟨ω, v⟩',
+  duas: '(ω∧η)(u, v)',
+  derivada: 'dω(u, v)',
+};
+
 function aplicarModo(): void {
   document.body.classList.toggle('duas-formas', modo === 'duas');
-  const botao = el<HTMLButtonElement>('modo');
-  botao.textContent = modo === 'duas' ? '⟨ ver 1-form' : '∧ ver 2-form';
-  botao.setAttribute('aria-pressed', String(modo === 'duas'));
-  el('numeral-label').textContent = modo === 'duas' ? '(ω∧η)(u, v)' : '⟨ω, v⟩';
+  document.body.classList.toggle('derivada', modo === 'derivada');
+  el<HTMLSelectElement>('modo').value = modo;
+  el('numeral-label').textContent = ROTULO_NUMERAL[modo];
 }
 
 function bindModo(): void {
-  el<HTMLButtonElement>('modo').addEventListener('click', () => {
-    modo = modo === 'duas' ? 'uma' : 'duas';
+  el<HTMLSelectElement>('modo').addEventListener('change', (event) => {
+    modo = (event.target as HTMLSelectElement).value as Modo;
     aplicarModo();
     update();
   });
+
+  for (let i = 0; i < DIM; i++) {
+    const input = el<HTMLInputElement>(`campo-omega-${i}`);
+    input.addEventListener('input', () => {
+      campoOmega[i] = input.value;
+      update();
+    });
+  }
+
+  const campoF = el<HTMLInputElement>('campo-f');
+  campoF.addEventListener('input', () => {
+    funcaoF = campoF.value;
+    update();
+  });
+
+  const alternar = el<HTMLInputElement>('usar-df');
+  alternar.addEventListener('change', () => {
+    usarDf = alternar.checked;
+    update();
+  });
+}
+
+/**
+ * Repõe os padrões do campo para a carta atual e sincroniza os rótulos.
+ *
+ * Chamada a cada troca de superfície: uma expressão em x e y não sobrevive a uma
+ * carta (θ, φ), e deixar o texto anterior só produziria um erro de parse que o
+ * aluno não pediu.
+ */
+function syncCampoLabels(): void {
+  const padroes = padroesDoCampo(scene.example.chart.names);
+  campoOmega[0] = padroes.omega[0];
+  campoOmega[1] = padroes.omega[1];
+  funcaoF = padroes.f;
+
+  for (let i = 0; i < DIM; i++) {
+    el(`sub-campo-${i}`).textContent = scene.example.chart.symbols[i] ?? String(i);
+    el<HTMLInputElement>(`campo-omega-${i}`).value = campoOmega[i]!;
+  }
+  el<HTMLInputElement>('campo-f').value = funcaoF;
 }
 
 function syncOmegaControls(): void {
@@ -907,6 +1053,7 @@ buildUFields();
 bindOmega();
 bindEta();
 bindModo();
+syncCampoLabels();
 aplicarModo();
 el<HTMLInputElement>('bemol').addEventListener('input', (event) => {
   bemol = Number((event.target as HTMLInputElement).value);

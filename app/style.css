@@ -79,17 +79,41 @@ body {
  * Esconder em vez de desabilitar: um controle apagado ainda ocupa espaço e ainda
  * pede para ser entendido, e a barra já está cheia.
  */
-.so-duas-formas {
+.so-duas-formas,
+.so-derivada {
   display: none;
 }
 
-body.duas-formas .so-duas-formas {
+body.duas-formas .so-duas-formas,
+body.derivada .so-derivada {
   display: block;
 }
 
+/* A morfose de ♭ e a leitura de v♭ pertencem ao modo 1-form. */
 body.duas-formas .derivado,
-body.duas-formas .morfose {
+body.duas-formas .morfose,
+body.derivada .derivado,
+body.derivada .morfose {
   display: none;
+}
+
+/* No modo derivada quem manda em ω é o campo digitado, não os sliders. */
+body.derivada .bloco-omega {
+  display: none;
+}
+
+.alternativa {
+  display: flex !important;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.alternativa input {
+  accent-color: var(--brand);
 }
 
 #modo,
