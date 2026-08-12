@@ -30,6 +30,11 @@ export interface SceneDoc {
   readonly ponto: readonly number[];
   readonly vetor: readonly number[];
   readonly omega: readonly number[];
+  /** Segunda 1-form e segundo vetor: a 2-form da Etapa 5 é ω ∧ η, lida em (u, v). */
+  readonly eta: readonly number[];
+  readonly u: readonly number[];
+  /** Qual leitura a cena abre mostrando. */
+  readonly modo: 'uma' | 'duas';
   readonly maxVetor: number;
   /** Morfose v ⇄ v♭ da Etapa 3, em [0, 1]. */
   readonly bemol: number;
@@ -127,14 +132,30 @@ export function sceneFromUnknown(bruto: unknown): SceneDoc {
     throw new SceneError('cena.mergulho: só "esfera" ou nulo são conhecidos');
   }
 
+  const vetor = exigirNumeros(o['vetor'], 'cena.vetor', 2);
+  const omega = exigirNumeros(o['omega'], 'cena.omega', 2);
+
+  // η e u chegaram na Etapa 5 e são opcionais: um endereço gerado antes dela
+  // continua abrindo, e o que falta vira a rotação de 90° do par correspondente
+  // — a mesma escolha que a interface usa como padrão, pelo mesmo motivo (um η
+  // paralelo a ω daria ω∧η = 0 e um ladrilho sem células).
+  const girar = (c: readonly number[]): number[] => [-c[1]!, c[0]!];
+  const modo = o['modo'] ?? 'uma';
+  if (modo !== 'uma' && modo !== 'duas') {
+    throw new SceneError('cena.modo: só "uma" ou "duas" são conhecidos');
+  }
+
   return {
     versao: VERSAO_ATUAL,
     carta,
     metrica: exigirTextos(o['metrica'], 'cena.metrica', 3),
     limites: { min, max },
     ponto: exigirNumeros(o['ponto'], 'cena.ponto', 2),
-    vetor: exigirNumeros(o['vetor'], 'cena.vetor', 2),
-    omega: exigirNumeros(o['omega'], 'cena.omega', 2),
+    vetor,
+    omega,
+    eta: o['eta'] === undefined ? girar(omega) : exigirNumeros(o['eta'], 'cena.eta', 2),
+    u: o['u'] === undefined ? girar(vetor) : exigirNumeros(o['u'], 'cena.u', 2),
+    modo,
     maxVetor,
     bemol,
     mergulho,

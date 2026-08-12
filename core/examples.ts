@@ -137,6 +137,9 @@ export interface SceneState {
   readonly ponto: readonly number[];
   readonly vetor: readonly number[];
   readonly omega: readonly number[];
+  readonly eta: readonly number[];
+  readonly u: readonly number[];
+  readonly modo: 'uma' | 'duas';
   readonly bemol: number;
   /** A métrica como o autor digitou, que pode já ter divergido do exemplo. */
   readonly metrica: readonly string[];
@@ -151,6 +154,9 @@ export function exampleToScene(example: MetricExample, estado: SceneState): Scen
     ponto: [...estado.ponto],
     vetor: [...estado.vetor],
     omega: [...estado.omega],
+    eta: [...estado.eta],
+    u: [...estado.u],
+    modo: estado.modo,
     maxVetor: example.maxVector,
     bemol: estado.bemol,
     // O arquivo de cena é lido e escrito por gente, então fala português; o

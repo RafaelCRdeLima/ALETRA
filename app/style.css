@@ -74,6 +74,25 @@ body {
   font-size: 0.85rem;
 }
 
+/*
+ * Os controles de η e u só existem no modo 2-form, e os de ♭ só no modo 1-form.
+ * Esconder em vez de desabilitar: um controle apagado ainda ocupa espaço e ainda
+ * pede para ser entendido, e a barra já está cheia.
+ */
+.so-duas-formas {
+  display: none;
+}
+
+body.duas-formas .so-duas-formas {
+  display: block;
+}
+
+body.duas-formas .derivado,
+body.duas-formas .morfose {
+  display: none;
+}
+
+#modo,
 #copiar {
   background: transparent;
   color: var(--muted);
@@ -86,11 +105,18 @@ body {
   min-width: 8.5rem;
 }
 
+#modo:hover,
 #copiar:hover {
   color: var(--ink);
   border-color: var(--brand);
 }
 
+#modo[aria-pressed='true'] {
+  color: var(--ink);
+  border-color: #6fb3c9;
+}
+
+body.limpo #modo,
 body.limpo #copiar {
   display: none;
 }
@@ -209,6 +235,37 @@ body.limpo #copiar {
   stroke-width: 4.5;
 }
 
+/* A pilha de η: mesma geometria da de ω, cor diferente. O cruzamento das duas
+   é que ladrilha o plano — cada célula vale 1. */
+.folha-eta {
+  stroke: #6fb3c9;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+/* O paralelogramo é pintado fraco de propósito: ele delimita a região, mas quem
+   tem de saltar aos olhos são as folhas que o recortam em células. */
+.celula {
+  fill: rgba(244, 239, 233, 0.11);
+  stroke: rgba(244, 239, 233, 0.45);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+
+.vetor-u {
+  stroke: #6fb3c9;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.ponta-u {
+  fill: #6fb3c9;
+}
+
+.alca-u {
+  fill: #6fb3c9;
+}
+
 .vetor-inteiro {
   stroke: var(--ink);
   stroke-width: 3;
@@ -269,15 +326,38 @@ text.tick.fim {
  * boa parte da turma tem — isso custava um terço da cena. Com colunas
  * declaradas, o que cede é a largura de cada bloco, não a altura do conjunto.
  */
+/*
+ * Colunas automáticas, não declaradas.
+ *
+ * O número de blocos mudou três vezes — três na Etapa 2, quatro com os
+ * componentes de v, cinco no modo 2-form — e a cada vez as colunas fixas
+ * transbordavam a barra e cortavam um controle pelo meio. `auto-fit` deixa o
+ * layout responder a quantos blocos estão visíveis em vez de a um número que
+ * era verdade na semana passada.
+ *
+ * `overflow-y` é válvula de segurança, não plano: se algum dia não couber
+ * mesmo, rola em vez de sumir com um controle sem avisar.
+ */
 #controles {
   display: grid;
-  grid-template-columns:
-    minmax(0, 2.6fr) minmax(0, 0.9fr)
-    minmax(0, 1fr) minmax(0, 1.3fr);
+  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
   align-items: start;
-  gap: 1.4rem;
+  gap: 1rem 1.4rem;
   padding: 0.85rem 1.5rem 1rem;
   border-top: 1px solid var(--border);
+  max-height: 45vh;
+  overflow-y: auto;
+}
+
+/* A métrica tem três campos de expressão; sozinha numa coluna, eles empilham. */
+#controles > .bloco:first-child {
+  grid-column: span 2;
+}
+
+/* Duas colunas, não a linha inteira: forçar `1 / -1` empurrava a nota para uma
+   linha própria e custava ~12% da altura dos painéis sem precisar. */
+#controles .nota {
+  grid-column: span 2;
 }
 
 /* Sem text-transform: uppercase transformaria "one-form ω" em "ONE-FORM Ω". */
@@ -459,23 +539,8 @@ body.limpo .numeral-gloss {
 /* --------------------------------------------------------------- respostas */
 
 /* Telas de notebook: a nota desce inteira em vez de espremer os controles. */
-/* 1420 e não 1340: a 1366 — largura de notebook muito comum — a nota ficava
-   espremida numa quarta coluna estreita, encostada nos sliders de ω. */
-@media (max-width: 1420px) {
-  #controles {
-    grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr) minmax(0, 1fr);
-  }
-
-  .nota {
-    grid-column: 1 / -1;
-    max-width: none;
-  }
-}
-
-@media (max-width: 980px) {
-  #controles {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
+.nota {
+  max-width: none;
 }
 
 /* Estreito o bastante para dois painéis lado a lado não valerem a pena. */
@@ -485,9 +550,8 @@ body.limpo .numeral-gloss {
     grid-template-rows: 1fr 1fr;
   }
 
-  #controles {
-    grid-template-columns: 1fr;
-    gap: 0.9rem;
+  #controles > .bloco:first-child {
+    grid-column: span 1;
   }
 
   #topo {

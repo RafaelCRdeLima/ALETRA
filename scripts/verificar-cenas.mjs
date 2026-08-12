@@ -163,6 +163,63 @@ const hachuraDegenerada = await page.locator('.camada-hachura rect').count();
 console.log('g=0 → células hachuradas:', hachuraDegenerada);
 await page.screenshot({ path: `${OUT}/etapa2-degenerada.png` });
 
+// Etapa 5: contar células. O critério visual do PLAN.md é que trocar a ordem de
+// ω e η inverta a orientação — o que na leitura aparece como o número trocando
+// de sinal sem mudar de módulo.
+console.log('\n— ∧ e a contagem de células —');
+{
+  await page.selectOption('#seletor', 'euclidiano');
+  await page.waitForTimeout(400);
+  await page.locator('#modo').click();
+  await page.waitForTimeout(600);
+
+  const num = (t) => Number(t.replace(/\./g, '').replace(',', '.'));
+  const lerNumeral = async () => num((await page.textContent('#numeral-value')).trim());
+  const rotulo = (await page.textContent('#numeral-label')).trim();
+
+  const w = [num(await page.textContent('#omega-0-out')), num(await page.textContent('#omega-1-out'))];
+  const e = [num(await page.textContent('#eta-0-out')), num(await page.textContent('#eta-1-out'))];
+  const v = [
+    num(await page.locator('#campos-vetor input').nth(0).inputValue()),
+    num(await page.locator('#campos-vetor input').nth(1).inputValue()),
+  ];
+  const u = [
+    num(await page.locator('#campos-u input').nth(0).inputValue()),
+    num(await page.locator('#campos-u input').nth(1).inputValue()),
+  ];
+
+  const sigma = w[0] * e[1] - w[1] * e[0];
+  const esperado = sigma * (u[0] * v[1] - u[1] * v[0]);
+  const mostrado = await lerNumeral();
+  console.log(`rótulo: ${rotulo}`);
+  console.log(
+    `  σ = ${sigma.toFixed(2)}, det[u v] = ${(u[0] * v[1] - u[1] * v[0]).toFixed(3)} → ` +
+      `esperado ${esperado.toFixed(2)}, mostrado ${mostrado.toFixed(2)}  ` +
+      `${Math.abs(esperado - mostrado) < 0.02 ? '✓' : '✗ DIVERGE'}`,
+  );
+  console.log(`  glosa: "${(await page.textContent('#numeral-gloss')).trim()}"`);
+
+  const celulas = await page.locator('.camada-celula polygon').count();
+  const folhasEta = await page.locator('.chart-panel .folha-eta').count();
+  console.log(`  paralelogramo desenhado=${celulas === 1}, folhas de η = ${folhasEta}`);
+  await page.screenshot({ path: `${OUT}/duas-formas.png` });
+
+  // Trocar ω por η inverte a orientação: mesmo módulo, sinal oposto.
+  await page.locator('#omega-0').fill(String(e[0]));
+  await page.locator('#omega-1').fill(String(e[1]));
+  await page.locator('#eta-0').fill(String(w[0]));
+  await page.locator('#eta-1').fill(String(w[1]));
+  await page.waitForTimeout(500);
+  const trocado = await lerNumeral();
+  console.log(
+    `  ω↔η: ${mostrado.toFixed(2)} → ${trocado.toFixed(2)}  ` +
+      `${Math.abs(trocado + mostrado) < 0.02 ? '✓ inverteu' : '✗ NÃO INVERTEU'}`,
+  );
+
+  await page.locator('#modo').click();
+  await page.waitForTimeout(300);
+}
+
 // Etapa 4: o critério é ida e volta *de verdade* — alterar a cena, copiar o
 // link, abrir numa aba nova sem estado nenhum, e conferir que voltou igual.
 // Recarregar a mesma aba não provaria nada: sobreviveria a qualquer cache.
@@ -246,9 +303,22 @@ for (const [w, h] of [
   const rolagem = await p.evaluate(
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
   );
+  // O modo 2-form acrescenta dois blocos de controle. Se a barra transbordar,
+  // ela corta um controle pelo meio — foi o que aconteceu na primeira versão.
+  await p.locator('#modo').click();
+  await p.waitForTimeout(400);
+  const cortado = await p.evaluate(() => {
+    const c = document.getElementById('controles');
+    return c.scrollHeight > c.clientHeight + 1;
+  });
+  await p.screenshot({ path: `${OUT}/layout-${w}x${h}-2form.png` });
+  await p.locator('#modo').click();
+  await p.waitForTimeout(200);
+
   console.log(
     `${w}×${h}: painéis ${Math.round(box.height)}px (${Math.round((box.height / h) * 100)}% da tela)` +
-      `${rolagem ? '  ⚠ ROLAGEM HORIZONTAL' : ''}`,
+      `${rolagem ? '  ⚠ ROLAGEM HORIZONTAL' : ''}` +
+      `${cortado ? '  ⚠ CONTROLES CORTADOS no modo 2-form' : ''}`,
   );
   await p.screenshot({ path: `${OUT}/layout-${w}x${h}.png` });
   await p.close();

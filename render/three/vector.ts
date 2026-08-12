@@ -18,6 +18,12 @@ export interface VectorOptions {
   readonly colorFraction: THREE.ColorRepresentation;
   /** Usada pela morfose da Etapa 3: a seta desbota enquanto v♭ aparece. */
   readonly opacity?: number;
+  /**
+   * Falso no modo 2-form: lá o número conta células cercadas por dois vetores e
+   * não é propriedade de v sozinho, então marcar um corte no meio dele sugeriria
+   * uma leitura que não existe.
+   */
+  readonly showFraction?: boolean;
 }
 
 export function buildVector(
@@ -38,7 +44,7 @@ export function buildVector(
 
   // Onde a última folha inteira é cruzada, como fração do comprimento da seta.
   const crossed =
-    Number.isFinite(value) && Math.abs(value) > 1e-9
+    (opts.showFraction ?? true) && Number.isFinite(value) && Math.abs(value) > 1e-9
       ? Math.min(1, Math.max(0, whole / value))
       : 1;
   const cut = Math.min(crossed * length, shaftLength);
@@ -47,7 +53,8 @@ export function buildVector(
   // cabeça da seta. Sem isto, toda fração menor que a cabeça sumia da tela e o
   // numeral dizia "+ 0,30" sem nada correspondente no desenho, que é exatamente
   // a reconciliação que D11 existe para evitar.
-  const hasFraction = Number.isFinite(value) && Math.abs(fraction) > 1e-6;
+  const hasFraction =
+    (opts.showFraction ?? true) && Number.isFinite(value) && Math.abs(fraction) > 1e-6;
 
   const opacity = opts.opacity ?? 1;
   const transparent = opacity < 1;

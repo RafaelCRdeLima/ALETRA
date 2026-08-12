@@ -39,19 +39,33 @@ export interface ChartPanelState {
   readonly bounds: ChartBounds;
   readonly names: readonly string[];
   readonly stacks: readonly StackLayer[];
+  /**
+   * O paralelogramo gerado por dois vetores, quando há 2-form em cena.
+   * É o que transforma "há um ladrilho" em "há **este** número de células":
+   * sem região cercada não há o que contar.
+   */
+  readonly cell: { readonly u: Float64Array; readonly v: Float64Array } | null;
+  /** Segundo vetor desenhado, quando existe. */
+  readonly vectorU: Float64Array | null;
   readonly point: Float64Array;
   readonly vector: Float64Array;
   /** Máscara quadrada de degeneração (1 = não serve), ou null. */
   readonly mask: Uint8Array | null;
   readonly maskResolution: number;
-  /** Quantas folhas o vetor atravessa — para o corte da fração. */
-  readonly value: number;
-  readonly whole: number;
+  /**
+   * O corte da fração ao longo de v, quando ele significa alguma coisa.
+   *
+   * Nulo no modo 2-form: ali o número conta células cercadas por *dois* vetores,
+   * e não é propriedade de v sozinho — marcar um ponto no meio de v sugeriria
+   * uma leitura que não existe.
+   */
+  readonly cut: { readonly value: number; readonly whole: number } | null;
 }
 
 export interface ChartPanelCallbacks {
   readonly onPointDrag: (x: number, y: number) => void;
   readonly onVectorDrag: (x: number, y: number) => void;
+  readonly onVectorUDrag: (x: number, y: number) => void;
 }
 
 const MARGIN = { left: 46, right: 18, top: 18, bottom: 34 };
@@ -83,9 +97,13 @@ export function createChartPanel(callbacks: ChartPanelCallbacks): ChartPanel {
     </mask>`;
   svg.appendChild(defs);
 
+  // A ordem importa: o paralelogramo é pintado *antes* das pilhas, para as
+  // folhas atravessarem por cima dele e recortarem as células visivelmente. Se
+  // ficasse por cima, cobriria justamente o que precisa ser contado.
   const layers = {
     hatch: group('camada-hachura'),
     grid: group('camada-grade'),
+    cell: group('camada-celula'),
     stack: group('camada-pilha'),
     vector: group('camada-vetor'),
     handles: group('camada-alcas'),
@@ -94,7 +112,7 @@ export function createChartPanel(callbacks: ChartPanelCallbacks): ChartPanel {
   for (const layer of Object.values(layers)) svg.appendChild(layer);
 
   let latest: ChartPanelState | null = null;
-  let drag: 'point' | 'vector' | null = null;
+  let drag: 'point' | 'vector' | 'vectorU' | null = null;
   let size = { width: 480, height: 360 };
 
   /**
@@ -150,8 +168,27 @@ export function createChartPanel(callbacks: ChartPanelCallbacks): ChartPanel {
     drawHatch(state);
     drawGrid();
     drawAxes(state);
+    drawCell(state);
     drawStack(state);
     drawVector(state);
+  }
+
+  /** O paralelogramo gerado por u e v — a região cujas células se contam. */
+  function drawCell(state: ChartPanelState): void {
+    if (!state.cell) return;
+    const { u, v } = state.cell;
+    const p = state.point;
+    const cantos = [
+      [p[0]!, p[1]!],
+      [p[0]! + u[0]!, p[1]! + u[1]!],
+      [p[0]! + u[0]! + v[0]!, p[1]! + u[1]! + v[1]!],
+      [p[0]! + v[0]!, p[1]! + v[1]!],
+    ].map((c) => toPixel(state, c));
+
+    const poligono = document.createElementNS(NS, 'polygon');
+    poligono.setAttribute('points', cantos.map(([x, y]) => `${x},${y}`).join(' '));
+    poligono.setAttribute('class', 'celula');
+    layers.cell.appendChild(poligono);
   }
 
   // ------------------------------------------------------------- camadas
@@ -319,21 +356,46 @@ export function createChartPanel(callbacks: ChartPanelCallbacks): ChartPanel {
     ];
   }
 
+  /** Uma seta lisa, sem o corte de fração: o segundo vetor não é o que se lê. */
+  function drawSimpleArrow(state: ChartPanelState, comps: Float64Array): void {
+    const [sx, sy] = toPixel(state, Array.from(state.point));
+    const [ex, ey] = toPixel(state, [
+      state.point[0]! + comps[0]!,
+      state.point[1]! + comps[1]!,
+    ]);
+    if (!Number.isFinite(ex) || !Number.isFinite(ey)) return;
+
+    layers.vector.appendChild(line(sx, sy, ex, ey, 'vetor-u'));
+    const angulo = Math.atan2(ey - sy, ex - sx);
+    const ponta = document.createElementNS(NS, 'path');
+    const t = 9;
+    ponta.setAttribute(
+      'd',
+      `M ${ex} ${ey} L ${ex - t * Math.cos(angulo - 0.4)} ${ey - t * Math.sin(angulo - 0.4)} ` +
+        `L ${ex - t * Math.cos(angulo + 0.4)} ${ey - t * Math.sin(angulo + 0.4)} Z`,
+    );
+    ponta.setAttribute('class', 'ponta-u');
+    layers.vector.appendChild(ponta);
+    layers.handles.appendChild(circle(ex, ey, 6, 'alca alca-u'));
+  }
+
   function drawVector(state: ChartPanelState): void {
+    if (state.vectorU) drawSimpleArrow(state, state.vectorU);
     const start = Array.from(state.point);
     const end = [state.point[0]! + state.vector[0]!, state.point[1]! + state.vector[1]!];
     const [sx, sy] = toPixel(state, start);
     const [ex, ey] = toPixel(state, end);
 
+    const corte = state.cut;
     const crossed =
-      Number.isFinite(state.value) && Math.abs(state.value) > 1e-9
-        ? Math.min(1, Math.max(0, state.whole / state.value))
+      corte && Number.isFinite(corte.value) && Math.abs(corte.value) > 1e-9
+        ? Math.min(1, Math.max(0, corte.whole / corte.value))
         : 1;
     const cx = sx + (ex - sx) * crossed;
     const cy = sy + (ey - sy) * crossed;
 
     layers.vector.appendChild(line(sx, sy, cx, cy, 'vetor-inteiro'));
-    layers.vector.appendChild(line(cx, cy, ex, ey, 'vetor-fracao'));
+    if (corte) layers.vector.appendChild(line(cx, cy, ex, ey, 'vetor-fracao'));
 
     const angle = Math.atan2(ey - sy, ex - sx);
     const head = document.createElementNS(NS, 'path');
@@ -343,7 +405,8 @@ export function createChartPanel(callbacks: ChartPanelCallbacks): ChartPanel {
       `M ${ex} ${ey} L ${ex - size9 * Math.cos(angle - 0.4)} ${ey - size9 * Math.sin(angle - 0.4)} ` +
         `L ${ex - size9 * Math.cos(angle + 0.4)} ${ey - size9 * Math.sin(angle + 0.4)} Z`,
     );
-    head.setAttribute('class', Math.abs(state.value - state.whole) > 1e-6 ? 'ponta-fracao' : 'ponta');
+    const temFracao = corte !== null && Math.abs(corte.value - corte.whole) > 1e-6;
+    head.setAttribute('class', temFracao ? 'ponta-fracao' : 'ponta');
     layers.vector.appendChild(head);
 
     layers.handles.appendChild(circle(sx, sy, 6, 'alca alca-ponto'));
@@ -355,16 +418,22 @@ export function createChartPanel(callbacks: ChartPanelCallbacks): ChartPanel {
   svg.addEventListener('pointerdown', (event) => {
     if (!latest) return;
     const [px, py] = local(event);
-    const [sx, sy] = toPixel(latest, Array.from(latest.point));
-    const [ex, ey] = toPixel(latest, [
-      latest.point[0]! + latest.vector[0]!,
-      latest.point[1]! + latest.vector[1]!,
-    ]);
-    const nearTip = Math.hypot(px - ex, py - ey) < 14;
-    const nearPoint = Math.hypot(px - sx, py - sy) < 14;
-    if (!nearTip && !nearPoint) return;
+    const perto = (comps: Float64Array): boolean => {
+      const [x, y] = toPixel(latest!, [
+        latest!.point[0]! + comps[0]!,
+        latest!.point[1]! + comps[1]!,
+      ]);
+      return Math.hypot(px - x, py - y) < 14;
+    };
 
-    drag = nearTip ? 'vector' : 'point';
+    const [sx, sy] = toPixel(latest, Array.from(latest.point));
+    // A ponta de v ganha da de u quando as duas estão sob o cursor: v é o vetor
+    // que o numeral lê, então é o que o aluno provavelmente quis pegar.
+    if (perto(latest.vector)) drag = 'vector';
+    else if (latest.vectorU && perto(latest.vectorU)) drag = 'vectorU';
+    else if (Math.hypot(px - sx, py - sy) < 14) drag = 'point';
+    else return;
+
     svg.setPointerCapture(event.pointerId);
     event.preventDefault();
   });
@@ -374,7 +443,9 @@ export function createChartPanel(callbacks: ChartPanelCallbacks): ChartPanel {
     const [px, py] = local(event);
     const [cx, cy] = toChart(latest, px, py);
     if (drag === 'point') callbacks.onPointDrag(cx, cy);
-    else callbacks.onVectorDrag(cx - latest.point[0]!, cy - latest.point[1]!);
+    else if (drag === 'vectorU') {
+      callbacks.onVectorUDrag(cx - latest.point[0]!, cy - latest.point[1]!);
+    } else callbacks.onVectorDrag(cx - latest.point[0]!, cy - latest.point[1]!);
   });
 
   const stop = (event: PointerEvent): void => {

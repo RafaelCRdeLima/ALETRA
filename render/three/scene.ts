@@ -7,6 +7,8 @@ export const PALETTE = {
   background: 0x14100f,
   surface: 0x2f2b29,
   tangent: 0x8fb8c8,
+  /** η e o segundo vetor: azul, para o cruzamento com o laranja de ω ficar nítido. */
+  eta: 0x6fb3c9,
   vector: 0xf4efe9,
   fraction: 0xffc24b,
   handle: 0xffffff,

@@ -215,6 +215,17 @@ de Lie, transporte paralelo, geodésicas.
 
 ## Etapa 5 — ∧, produto exterior
 
+**Estado:** construída. A pilha de ω e a de η se cruzam e ladrilham o plano; o paralelogramo gerado
+por $u$ e $v$ cerca a região, e o numeral conta as células com a mesma disciplina de D11 ("5 células
++ 0,58"). Trocar a ordem de $\omega$ e $\eta$ inverte o sinal — critério visual verificado. Um botão
+alterna entre a leitura de 1-form e a de 2-form, porque mostrar $\langle\omega,v\rangle$ e
+$(\omega\wedge\eta)(u,v)$ ao mesmo tempo obrigaria o aluno a descobrir sozinho qual número
+corresponde a qual desenho.
+
+**Confirmação de D12:** nenhum código de avaliação novo foi preciso. `evaluate(σ, [u, v])` é a mesma
+função que a Etapa 1 usa com um vetor, e já estava verde desde lá. O que esta etapa escreveu foi o
+$\wedge$ em si e o desenho.
+
 **Objetivo:** estender a linguagem visual da pilha para 2-forms: paralelogramo orientado como
 gerador, célula como unidade, contagem de células = número.
 

@@ -18,11 +18,16 @@ import {
   type SceneDoc,
 } from './scene';
 
+const girar = (c: readonly number[]): number[] => [-c[1]!, c[0]!];
+
 const cenaDe = (example: MetricExample): SceneDoc =>
   exampleToScene(example, {
     ponto: example.initialPoint,
     vetor: example.initialVector,
     omega: example.initialOmega,
+    eta: girar(example.initialOmega),
+    u: girar(example.initialVector),
+    modo: 'uma',
     bemol: 0.4,
     metrica: example.components,
   });
@@ -120,6 +125,10 @@ describe('recusa de entrada malformada', () => {
     recusa({ mergulho: 'toro' }, /só "esfera" ou nulo/);
   });
 
+  it('recusa modo desconhecido', () => {
+    recusa({ modo: 'tres' }, /só "uma" ou "duas"/);
+  });
+
   it('recusa texto longo demais — o campo não é um canal de carga', () => {
     recusa({ nota: 'x'.repeat(500) }, /longo demais/);
   });
@@ -137,6 +146,26 @@ describe('recusa de entrada malformada', () => {
   it('não carrega campos extras que alguém tenha enfiado no JSON', () => {
     const cena = sceneFromText(JSON.stringify({ ...BASE, malicioso: 'oi', __proto__: {} }));
     expect(Object.hasOwn(cena, 'malicioso')).toBe(false);
+  });
+});
+
+describe('compatibilidade com endereços gerados antes da Etapa 5', () => {
+  it('preenche η e u com a rotação de 90° quando faltam', () => {
+    const { eta: _e, u: _u, modo: _m, ...semEtapa5 } = BASE;
+    const cena = sceneFromText(JSON.stringify(semEtapa5));
+
+    expect(cena.eta).toEqual([-BASE.omega[1]!, BASE.omega[0]!]);
+    expect(cena.u).toEqual([-BASE.vetor[1]!, BASE.vetor[0]!]);
+    expect(cena.modo).toBe('uma');
+  });
+
+  it('o padrão nunca produz um ladrilho vazio', () => {
+    // η paralelo a ω daria ω∧η = 0 e nenhuma célula para contar — a pior
+    // primeira impressão possível para uma etapa que se chama "contar células".
+    const { eta: _e, ...semEta } = BASE;
+    const cena = sceneFromText(JSON.stringify(semEta));
+    const sigma = cena.omega[0]! * cena.eta[1]! - cena.omega[1]! * cena.eta[0]!;
+    expect(Math.abs(sigma)).toBeGreaterThan(0);
   });
 });
 

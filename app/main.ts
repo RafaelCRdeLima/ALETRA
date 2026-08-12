@@ -11,6 +11,7 @@ import {
 import { sceneFromParam, sceneToParam, type SceneDoc } from '../core/scene';
 import { evaluate, form, type Form } from '../core/forms';
 import { flatForm } from '../core/musical';
+import { wedge } from '../core/wedge';
 import { ParseError } from '../core/expr';
 import { normSquared, type ChristoffelFn, type MetricFn } from '../core/metric';
 import { compileMetric, componentIndices } from '../core/metric-expr';
@@ -37,10 +38,23 @@ interface Scene {
   mask: Uint8Array | null;
   x: Float64Array;
   v: Float64Array;
+  /** Segundo vetor, para cercar a região cujas células se contam (Etapa 5). */
+  u: Float64Array;
   omega: Form;
+  /** Segunda 1-form: ω ∧ η é a 2-form da cena. */
+  eta: Form;
   parseError: string | null;
   probe: MetricProbe | null;
 }
+
+/**
+ * O padrão de η e u é a rotação de 90° de ω e v na carta.
+ *
+ * Não é arbitrário: um η paralelo a ω daria ω∧η = 0 e um ladrilho sem células,
+ * que é a pior primeira impressão possível para uma etapa cujo objetivo é
+ * contar células. A rotação garante que a grade nasça bem cruzada.
+ */
+const perpendicular = (c: ArrayLike<number>): number[] => [-c[1]!, c[0]!];
 
 const el = <T extends HTMLElement>(id: string): T => {
   const node = document.getElementById(id);
@@ -71,6 +85,17 @@ const MODO_LIMPO = params.get('limpo') === '1';
 let bemol = 0;
 
 /**
+ * Modo de leitura. Em 'uma' o numeral conta folhas atravessadas por v; em
+ * 'duas' conta células cercadas por u e v.
+ *
+ * São dois modos e não uma tela só porque as duas leituras competem: mostrar
+ * ⟨ω,v⟩ e (ω∧η)(u,v) ao mesmo tempo obrigaria o aluno a descobrir sozinho qual
+ * número corresponde a qual desenho, que é exatamente o trabalho que este
+ * produto existe para poupar.
+ */
+let modo: 'uma' | 'duas' = params.get('modo') === '2' ? 'duas' : 'uma';
+
+/**
  * Uma cena vinda do endereço tem precedência sobre `?exemplo=`, e um endereço
  * quebrado não pode derrubar a página: a cena de origem continua sendo aberta e
  * a mensagem explica o que houve. Um aluno que recebeu um link truncado no
@@ -83,6 +108,7 @@ if (paramCena !== null) {
   try {
     cenaInicial = sceneFromParam(paramCena);
     bemol = cenaInicial.bemol;
+    modo = cenaInicial.modo;
   } catch (error) {
     erroCena = error instanceof Error ? error.message : 'não consegui ler a cena do endereço';
   }
@@ -92,6 +118,12 @@ let scene: Scene = buildScene(
   cenaInicial ? sceneToExample(cenaInicial) : exampleById(params.get('exemplo') ?? ''),
 );
 scene.parseError = erroCena;
+// η e u não passam pelo `MetricExample`, que descreve a superfície e não os
+// objetos em cima dela — então vêm da cena diretamente.
+if (cenaInicial) {
+  scene.eta = form(DIM, 1, [...cenaInicial.eta]);
+  scene.u.set(cenaInicial.u);
+}
 
 function buildScene(example: MetricExample): Scene {
   const components = [...example.components];
@@ -104,7 +136,9 @@ function buildScene(example: MetricExample): Scene {
     mask: degeneracyMask(metric, DIM, example.bounds, MASK_RESOLUTION),
     x: Float64Array.from(example.initialPoint),
     v: Float64Array.from(example.initialVector),
+    u: Float64Array.from(perpendicular(example.initialVector)),
     omega: form(DIM, 1, [...example.initialOmega]),
+    eta: form(DIM, 1, perpendicular(example.initialOmega)),
     parseError: null,
     probe: null,
   };
@@ -233,8 +267,22 @@ function render3D(value: number, active: boolean, vBemol: Form): void {
     }),
   );
 
+  // No modo 2-form este grupo carrega η: a pilha dele cruza a de ω e o ladrilho
+  // aparece no próprio plano tangente, que é plano — as células são coplanares
+  // e a ressalva de D10 sobre profundidade não chega a valer aqui.
+  const duasFormas = modo === 'duas';
   disposeChildren(bemolGroup);
-  if (opa.bemol > 0.01) {
+  if (duasFormas) {
+    bemolGroup.add(
+      buildStack(scene.eta, frame, veil, {
+        radius: DISC_RADIUS,
+        maxSheets: 14,
+        thickness: 0.13,
+        color: PALETTE.eta,
+        opacity: 0.9,
+      }),
+    );
+  } else if (opa.bemol > 0.01) {
     bemolGroup.add(
       buildStack(form(DIM, 1, Array.from(finitos(vBemol.components))), frame, veil, {
         radius: DISC_RADIUS,
@@ -255,8 +303,21 @@ function render3D(value: number, active: boolean, vBemol: Form): void {
       colorWhole: PALETTE.vector,
       colorFraction: PALETTE.fraction,
       opacity: opa.seta,
+      showFraction: !duasFormas,
     }),
   );
+  if (duasFormas) {
+    vectorGroup.add(
+      buildVector(frame, scene.u, 0, {
+        shaftRadius: 0.014,
+        headLength: 0.07,
+        headRadius: 0.036,
+        colorWhole: PALETTE.eta,
+        colorFraction: PALETTE.eta,
+        showFraction: false,
+      }),
+    );
+  }
 
   pointHandle.position.copy(frame.point);
   tipHandle.position.copy(frame.point).add(toWorld(frame, scene.v));
@@ -326,6 +387,10 @@ const chartPanel = createChartPanel({
     scene.v.set([a, b]);
     update();
   },
+  onVectorUDrag: (a, b) => {
+    scene.u.set([a, b]);
+    update();
+  },
 });
 el('carta-corpo').appendChild(chartPanel.element);
 
@@ -363,18 +428,21 @@ function paintNumeral(value: number): void {
   const reading = read(value);
   el('numeral-value').textContent = Number.isFinite(value) ? ptBR(reading.value) : '—';
 
-  const folhas = Math.abs(reading.whole);
+  // A unidade muda com o modo, mas a disciplina de D11 não: o inteiro é o que
+  // foi atravessado ou cercado por completo, e a fração nunca some.
+  const [singular, plural] = modo === 'duas' ? ['célula', 'células'] : ['folha', 'folhas'];
+  const inteiras = Math.abs(reading.whole);
   const resto = document.createElement('span');
   resto.className = 'frac';
 
-  if (folhas === 0) {
+  if (inteiras === 0) {
     resto.textContent = ptBR(Math.abs(reading.fraction));
-    el('numeral-gloss').replaceChildren(resto, ' de uma folha');
+    el('numeral-gloss').replaceChildren(resto, ` de uma ${singular}`);
     return;
   }
   resto.textContent = `+ ${ptBR(Math.abs(reading.fraction))}`;
   el('numeral-gloss').replaceChildren(
-    `${folhas} folha${folhas === 1 ? '' : 's'} `,
+    `${inteiras} ${inteiras === 1 ? singular : plural} `,
     resto,
   );
 }
@@ -421,9 +489,22 @@ function update(): void {
   if (comMergulho) frame = sphereFrame(R, scene.x);
   document.body.classList.toggle('sem-mergulho', !comMergulho);
 
-  const value = evaluate(scene.omega, [scene.v]);
+  const duasFormas = modo === 'duas';
+  const sigma = wedge(scene.omega, scene.eta);
+  const value = duasFormas
+    ? evaluate(sigma, [scene.u, scene.v])
+    : evaluate(scene.omega, [scene.v]);
   const vBemol = flatForm(scene.metric, scene.x, scene.v, DIM);
   const opa = opacidades();
+
+  // No modo 2-form a segunda camada é η, e o cruzamento das duas pilhas é o
+  // ladrilho. No modo 1-form ela é v♭, que é a leitura da Etapa 3.
+  const camadas = [
+    { components: scene.omega.components, classe: 'folha', opacidade: opa.omega },
+    duasFormas
+      ? { components: scene.eta.components, classe: 'folha-eta', opacidade: 0.92 }
+      : { components: finitos(vBemol.components), classe: 'folha-bemol', opacidade: opa.bemol },
+  ];
 
   // No modo limpo a carta só aparece quando não há mergulho. Desenhar num painel
   // escondido custaria uma reconstrução de SVG por arraste, à toa.
@@ -431,16 +512,14 @@ function update(): void {
     chartPanel.render({
       bounds: scene.example.bounds,
       names: scene.example.chart.symbols,
-      stacks: [
-        { components: scene.omega.components, classe: 'folha', opacidade: opa.omega },
-        { components: finitos(vBemol.components), classe: 'folha-bemol', opacidade: opa.bemol },
-      ],
+      stacks: camadas,
+      cell: duasFormas ? { u: scene.u, v: scene.v } : null,
+      vectorU: duasFormas ? scene.u : null,
       point: scene.x,
       vector: scene.v,
       mask: scene.mask,
       maskResolution: MASK_RESOLUTION,
-      value,
-      whole: read(value).whole,
+      cut: duasFormas ? null : { value, whole: read(value).whole },
     });
   }
 
@@ -448,6 +527,7 @@ function update(): void {
   paintNumeral(value);
   paintBemol(vBemol);
   syncVectorFields();
+  syncUFields();
 
   const erro = el<HTMLParagraphElement>('erro-metrica');
   erro.hidden = scene.parseError === null;
@@ -485,7 +565,9 @@ function buildSelector(): void {
     scene = buildScene(escolhido);
     buildMetricFields();
     buildVectorFields();
+    buildUFields();
     syncOmegaControls();
+    syncEtaControls();
     update();
   });
 }
@@ -496,6 +578,9 @@ function cenaAtual(): SceneDoc {
     ponto: Array.from(scene.x),
     vetor: Array.from(scene.v),
     omega: Array.from(scene.omega.components),
+    eta: Array.from(scene.eta.components),
+    u: Array.from(scene.u),
+    modo,
     bemol,
     metrica: scene.components,
   });
@@ -620,6 +705,86 @@ function syncVectorFields(): void {
   }
 }
 
+/** Campos do segundo vetor, com a mesma mecânica dos de v. */
+function buildUFields(): void {
+  const host = el('campos-u');
+  host.replaceChildren(
+    ...Array.from({ length: DIM }, (_, index) => {
+      const wrapper = document.createElement('label');
+      wrapper.className = 'campo campo-vetor';
+
+      const label = document.createElement('span');
+      const sup = document.createElement('sup');
+      sup.textContent = scene.example.chart.symbols[index] ?? String(index);
+      label.append('u', sup, ' =');
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.inputMode = 'decimal';
+      input.spellcheck = false;
+      input.dataset['componente'] = String(index);
+      input.addEventListener('input', () => {
+        const valor = Number(input.value.replace(',', '.').trim());
+        if (!Number.isFinite(valor)) return;
+        scene.u[index] = valor;
+        update();
+      });
+      input.addEventListener('blur', syncUFields);
+
+      wrapper.append(label, input);
+      return wrapper;
+    }),
+  );
+  syncUFields();
+}
+
+function syncUFields(): void {
+  for (const input of document.querySelectorAll<HTMLInputElement>('#campos-u input')) {
+    if (input === document.activeElement) continue;
+    input.value = ptBR(scene.u[Number(input.dataset['componente'])] ?? 0);
+  }
+}
+
+function bindEta(): void {
+  for (let i = 0; i < DIM; i++) {
+    const input = el<HTMLInputElement>(`eta-${i}`);
+    input.addEventListener('input', () => {
+      const components = Array.from(scene.eta.components);
+      components[i] = Number(input.value);
+      scene.eta = form(DIM, 1, components);
+      el(`eta-${i}-out`).textContent = ptBR(Number(input.value));
+      update();
+    });
+  }
+}
+
+function syncEtaControls(): void {
+  for (let i = 0; i < DIM; i++) {
+    el<HTMLInputElement>(`eta-${i}`).value = String(scene.eta.components[i]);
+    el(`eta-${i}-out`).textContent = ptBR(scene.eta.components[i]!);
+    const rotulo = el(`rotulo-eta-${i}`);
+    const sub = document.createElement('sub');
+    sub.textContent = scene.example.chart.symbols[i] ?? String(i);
+    rotulo.replaceChildren('η', sub);
+  }
+}
+
+function aplicarModo(): void {
+  document.body.classList.toggle('duas-formas', modo === 'duas');
+  const botao = el<HTMLButtonElement>('modo');
+  botao.textContent = modo === 'duas' ? '⟨ ver 1-form' : '∧ ver 2-form';
+  botao.setAttribute('aria-pressed', String(modo === 'duas'));
+  el('numeral-label').textContent = modo === 'duas' ? '(ω∧η)(u, v)' : '⟨ω, v⟩';
+}
+
+function bindModo(): void {
+  el<HTMLButtonElement>('modo').addEventListener('click', () => {
+    modo = modo === 'duas' ? 'uma' : 'duas';
+    aplicarModo();
+    update();
+  });
+}
+
 function syncOmegaControls(): void {
   for (let i = 0; i < DIM; i++) {
     const input = el<HTMLInputElement>(`omega-${i}`);
@@ -708,7 +873,11 @@ el<HTMLSelectElement>('seletor').value = scene.example.id;
 el<HTMLInputElement>('bemol').value = String(bemol);
 buildMetricFields();
 buildVectorFields();
+buildUFields();
 bindOmega();
+bindEta();
+bindModo();
+aplicarModo();
 el<HTMLInputElement>('bemol').addEventListener('input', (event) => {
   bemol = Number((event.target as HTMLInputElement).value);
   update();
