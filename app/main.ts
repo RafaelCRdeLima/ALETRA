@@ -24,6 +24,7 @@ import { sphereChartOf } from '../core/sphere';
 import { createChartPanel } from '../render/svg/chart-panel';
 import { fromWorld, sphereFrame, toWorld, type TangentFrame } from '../render/three/frame';
 import { disposeChildren } from '../render/three/primitives';
+import { basico } from '../render/three/materials';
 import { createStage, PALETTE } from '../render/three/scene';
 import { buildStack } from '../render/three/stack';
 import { buildVector } from '../render/three/vector';
@@ -360,8 +361,7 @@ function render3D(
     return;
   }
 
-  disposeChildren(tangentGroup);
-  tangentGroup.add(tangentDisc(frame), ...basisArrows(frame));
+  atualizarPlanoTangente(frame);
 
   const opa = opacidades();
 
@@ -457,35 +457,47 @@ function clampVectorMetric(vetor: Float64Array): void {
   }
 }
 
-function tangentDisc(f: TangentFrame): THREE.Mesh {
-  const mesh = new THREE.Mesh(
-    new THREE.CircleGeometry(DISC_RADIUS, 64),
-    new THREE.MeshBasicMaterial({
-      color: PALETTE.tangent,
-      transparent: true,
-      opacity: 0.1,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    }),
-  );
-  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), f.normal);
-  mesh.position.copy(f.point);
-  mesh.renderOrder = 1;
-  return mesh;
-}
+/**
+ * O disco tangente e as setas da base são criados **uma vez** e atualizados no
+ * lugar.
+ *
+ * A geometria deles não muda com o arraste — só a posição e a orientação. Antes
+ * eram reconstruídos por evento, junto com material e geometria novos, o que
+ * somava alocação e recompilação de shader ao custo de cada movimento do mouse.
+ * Mover um objeto que já existe é uma matriz; recriá-lo é tudo de novo.
+ */
+const tangentDisc = new THREE.Mesh(
+  new THREE.CircleGeometry(DISC_RADIUS, 64),
+  basico(PALETTE.tangent, 0.1, { depthWrite: false }),
+);
+tangentDisc.renderOrder = 1;
 
-function basisArrows(f: TangentFrame): THREE.Object3D[] {
-  return f.basis.map((e) => {
-    const helper = new THREE.ArrowHelper(
-      e.clone().normalize(),
-      f.point,
-      Math.min(e.length(), DISC_RADIUS * 0.8),
-      PALETTE.tangent,
-      0.06,
-      0.03,
-    );
-    helper.renderOrder = 2;
-    return helper;
+const basisArrows = [0, 1].map(() => {
+  const helper = new THREE.ArrowHelper(
+    new THREE.Vector3(1, 0, 0),
+    new THREE.Vector3(),
+    1,
+    PALETTE.tangent,
+    0.06,
+    0.03,
+  );
+  helper.renderOrder = 2;
+  return helper;
+});
+tangentGroup.add(tangentDisc, ...basisArrows);
+
+const EIXO_Z = new THREE.Vector3(0, 0, 1);
+
+function atualizarPlanoTangente(f: TangentFrame): void {
+  tangentDisc.quaternion.setFromUnitVectors(EIXO_Z, f.normal);
+  tangentDisc.position.copy(f.point);
+
+  f.basis.forEach((e, i) => {
+    const seta = basisArrows[i];
+    if (!seta) return;
+    seta.position.copy(f.point);
+    seta.setDirection(e.clone().normalize());
+    seta.setLength(Math.min(e.length(), DISC_RADIUS * 0.8), 0.06, 0.03);
   });
 }
 
@@ -812,6 +824,7 @@ function buildSelector(): void {
     buildUFields();
     syncOmegaControls();
     syncEtaControls();
+    resetCampos();
     syncCampoLabels();
     update();
   });
@@ -828,6 +841,14 @@ function cenaAtual(): SceneDoc {
     modo,
     bemol,
     metrica: scene.components,
+    campos: {
+      omega: [...campoOmega],
+      f: funcaoF,
+      usarDf,
+      x: [...campoX],
+      y: [...campoY],
+      passo: tempoFluxo,
+    },
   });
 }
 
@@ -1083,11 +1104,20 @@ function bindModo(): void {
  * carta (θ, φ), e deixar o texto anterior só produziria um erro de parse que o
  * aluno não pediu.
  */
-function syncCampoLabels(): void {
+/**
+ * Repõe os padrões da carta atual.
+ *
+ * Separado de `syncCampoLabels` de propósito: trocar de superfície *deve*
+ * repor os padrões — uma expressão em x,y não sobrevive a uma carta (θ,φ) —, mas
+ * abrir uma cena de um link **não** deve, senão o que o autor escreveu seria
+ * apagado no caminho.
+ */
+function resetCampos(): void {
   const padroes = padroesDoCampo(scene.example.chart.names);
   campoOmega[0] = padroes.omega[0];
   campoOmega[1] = padroes.omega[1];
   funcaoF = padroes.f;
+  usarDf = false;
 
   const campos = padroesDosCampos(scene.example.chart.names);
   campoX[0] = campos.x[0];
@@ -1095,7 +1125,24 @@ function syncCampoLabels(): void {
   campoY[0] = campos.y[0];
   campoY[1] = campos.y[1];
   tempoFluxo = passoPadrao(scene.example.bounds);
+}
+
+/** Aplica os campos que vieram de uma cena, quando ela os traz. */
+function aplicarCampos(campos: NonNullable<SceneDoc['campos']>): void {
+  campoOmega[0] = campos.omega[0]!;
+  campoOmega[1] = campos.omega[1]!;
+  funcaoF = campos.f;
+  usarDf = campos.usarDf;
+  campoX[0] = campos.x[0]!;
+  campoX[1] = campos.x[1]!;
+  campoY[0] = campos.y[0]!;
+  campoY[1] = campos.y[1]!;
+  tempoFluxo = campos.passo;
+}
+
+function syncCampoLabels(): void {
   el<HTMLInputElement>('tempo-fluxo').value = String(tempoFluxo);
+  el<HTMLInputElement>('usar-df').checked = usarDf;
 
   for (let i = 0; i < DIM; i++) {
     el(`sub-campo-${i}`).textContent = scene.example.chart.symbols[i] ?? String(i);
@@ -1203,6 +1250,9 @@ buildUFields();
 bindOmega();
 bindEta();
 bindModo();
+// Cena do endereço manda; sem ela, os padrões da carta.
+if (cenaInicial?.campos) aplicarCampos(cenaInicial.campos);
+else resetCampos();
 syncCampoLabels();
 aplicarModo();
 el<HTMLInputElement>('bemol').addEventListener('input', (event) => {

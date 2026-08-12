@@ -34,24 +34,22 @@ export function cone(
 }
 
 /**
- * Libera geometrias **e materiais** de um grupo descartável — a cena é
- * reconstruída a cada arraste.
+ * Libera as geometrias de um grupo descartável — a cena é reconstruída a cada
+ * arraste, e geometria é o que de fato nasce e morre junto com ela.
  *
- * Materiais importam mesmo quando o heap não cresce: os desta cena são todos
- * iguais, então compartilham um programa WebGL só e o coletor de lixo dá conta
- * do resto. O que quebra essa sorte é material variando por objeto — cores por
- * célula na Etapa 5, por exemplo —, e aí cada um vira um programa próprio que
- * nada libera. Descartar aqui custa três linhas e remove a armadilha antes dela
- * existir.
+ * **Materiais não são descartados aqui, e isso é decisão medida.** A auditoria
+ * anterior mandou descartá-los "por higiene"; a auditoria seguinte mediu o preço:
+ * 264 ms por evento de arraste contra 96 ms sem. `dispose()` devolve o programa
+ * WebGL ao cache, e recriar um material equivalente no quadro seguinte recompila
+ * o shader.
+ *
+ * A saída foi parar de criar: `materials.ts` guarda um material por aparência,
+ * vivo pelo resto da sessão. Não há o que descartar, então não há nem vazamento
+ * nem recompilação. Ver o comentário lá para o raciocínio inteiro.
  */
 export function disposeChildren(group: THREE.Object3D): void {
   for (const child of group.children) {
-    if (child instanceof THREE.Mesh || child instanceof THREE.Line) {
-      child.geometry.dispose();
-      const material = (child as THREE.Mesh).material;
-      if (Array.isArray(material)) material.forEach((m) => m.dispose());
-      else material.dispose();
-    }
+    if (child instanceof THREE.Mesh || child instanceof THREE.Line) child.geometry.dispose();
     disposeChildren(child);
   }
   group.clear();

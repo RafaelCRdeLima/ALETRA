@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { evaluate, type Form } from '../../core/forms';
 import { fromWorld, toWorld, type TangentFrame } from './frame';
+import { basico } from './materials';
 
 /**
  * A pilha de uma 1-form desenhada no plano tangente.
@@ -87,14 +88,9 @@ export function buildStack(
     const taper = 1 - 0.35 * (Math.abs(k) / (kMax + 1));
     half.copy(frame.normal).multiplyScalar((opts.thickness * taper) / 2);
 
-    const material = new THREE.MeshBasicMaterial({
-      color: opts.color,
-      transparent: true,
-      opacity: opts.opacity,
-      alphaMap: veil,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    });
+    // Um material para todas as folhas desta cor, compartilhado e de vida longa
+    // — ver materials.ts para por que criar um por folha custava caro.
+    const material = basico(opts.color, opts.opacity, { alphaMap: veil, depthWrite: false });
     sheets.push({ k, mesh: new THREE.Mesh(ribbon(p1, p2, half, frame, opts.radius), material) });
   }
 

@@ -143,6 +143,8 @@ export interface SceneState {
   readonly bemol: number;
   /** A métrica como o autor digitou, que pode já ter divergido do exemplo. */
   readonly metrica: readonly string[];
+  /** Os campos digitados das Etapas 6 e 7. */
+  readonly campos: SceneDoc['campos'];
 }
 
 export function exampleToScene(example: MetricExample, estado: SceneState): SceneDoc {
@@ -157,6 +159,7 @@ export function exampleToScene(example: MetricExample, estado: SceneState): Scen
     eta: [...estado.eta],
     u: [...estado.u],
     modo: estado.modo,
+    campos: estado.campos,
     maxVetor: example.maxVector,
     bemol: estado.bemol,
     // O arquivo de cena é lido e escrito por gente, então fala português; o

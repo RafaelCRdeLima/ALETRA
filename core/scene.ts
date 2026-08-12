@@ -40,6 +40,23 @@ export interface SceneDoc {
   readonly bemol: number;
   /** Só a esfera tem mergulho em ℝ³ hoje; qualquer outra coisa vive na carta. */
   readonly mergulho: 'esfera' | null;
+  /**
+   * Os campos digitados das Etapas 6 e 7.
+   *
+   * Nulo quando a cena não os define — aí a interface usa os padrões da carta.
+   * Sem isto, copiar o link no modo derivada ou colchete guardava o *modo* e
+   * perdia tudo que o autor tinha escrito, e quem abrisse veria os padrões: a
+   * promessa da Etapa 4 ("vê exatamente o que você via") quebrada em silêncio,
+   * porque a cena continuava abrindo.
+   */
+  readonly campos: {
+    readonly omega: readonly string[];
+    readonly f: string;
+    readonly usarDf: boolean;
+    readonly x: readonly string[];
+    readonly y: readonly string[];
+    readonly passo: number;
+  } | null;
   readonly rotulo: string;
   readonly nota: string;
 }
@@ -96,6 +113,35 @@ function exigirTextos(valor: unknown, onde: string, quantos: number): string[] {
     throw new SceneError(`${onde}: esperava ${quantos} itens`);
   }
   return valor.map((v, i) => exigirTexto(v, `${onde}[${i}]`));
+}
+
+/**
+ * Os campos digitados das Etapas 6 e 7, validados com o mesmo rigor do resto.
+ *
+ * As expressões não são compiladas aqui — quem compila é a interface, com o
+ * parser de gramática fechada de D4 — mas o teto de comprimento vale desde já:
+ * o campo não é um canal de carga.
+ */
+function lerCampos(bruto: unknown): SceneDoc['campos'] {
+  if (bruto === undefined || bruto === null) return null;
+  const o = exigirObjeto(bruto, 'cena.campos');
+
+  const passo = exigirNumero(o['passo'], 'cena.campos.passo');
+  if (passo <= 0) throw new SceneError('cena.campos.passo: tem de ser positivo');
+
+  const usarDf = o['usarDf'];
+  if (typeof usarDf !== 'boolean') {
+    throw new SceneError('cena.campos.usarDf: esperava verdadeiro ou falso');
+  }
+
+  return {
+    omega: exigirTextos(o['omega'], 'cena.campos.omega', 2),
+    f: exigirTexto(o['f'], 'cena.campos.f'),
+    usarDf,
+    x: exigirTextos(o['x'], 'cena.campos.x', 2),
+    y: exigirTextos(o['y'], 'cena.campos.y', 2),
+    passo,
+  };
 }
 
 /**
@@ -165,6 +211,7 @@ export function sceneFromUnknown(bruto: unknown): SceneDoc {
     eta: o['eta'] === undefined ? girar(omega) : exigirNumeros(o['eta'], 'cena.eta', 2),
     u: o['u'] === undefined ? girar(vetor) : exigirNumeros(o['u'], 'cena.u', 2),
     modo,
+    campos: lerCampos(o['campos']),
     maxVetor,
     bemol,
     mergulho,

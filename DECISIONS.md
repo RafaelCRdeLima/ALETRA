@@ -456,8 +456,14 @@ WhatsApp precisa dar *alguma coisa*, não tela branca.
 reconhece ao reabrir, e é o que sobrevive a uma mudança futura no parser.
 
 **Revisitar quando:** o campo de texto explicativo virar conteúdo de aula de verdade, ou uma cena
-passar a guardar muitos objetos (a Etapa 5 traz 2-forms). Aí medir de novo — a régua é a medição,
-não o palpite.
+passar a guardar muitos objetos. Aí medir de novo — a régua é a medição, não o palpite.
+
+**Medido de novo (auditoria pós-Etapa 7):** as Etapas 6 e 7 acrescentaram à cena os campos
+digitados (ω como campo, a função f, os dois campos vetoriais e o passo de fluxo). As URLs foram de
+~580 para ~745 caracteres — 36% do limiar conservador. O gatilho funcionou como previsto: o teste
+de comprimento quebrou sozinho quando o formato cresceu, em vez de o crescimento passar
+despercebido. A decisão de não comprimir continua de pé, e o teto do teste é metade do limiar
+para continuar avisando cedo.
 
 ---
 

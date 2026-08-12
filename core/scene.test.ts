@@ -30,6 +30,14 @@ const cenaDe = (example: MetricExample): SceneDoc =>
     modo: 'uma',
     bemol: 0.4,
     metrica: example.components,
+    campos: {
+      omega: ['1 - y', 'x'],
+      f: 'x*y',
+      usarDf: false,
+      x: ['1', '0'],
+      y: ['0', '1 + x'],
+      passo: 1.2,
+    },
   });
 
 const BASE: SceneDoc = cenaDe(EXAMPLES[0]!);
@@ -76,10 +84,20 @@ describe('ida e volta', () => {
 });
 
 describe('comprimento da URL (critério de verificação da Etapa 4)', () => {
+  /**
+   * O limiar conservador de URL é ~2 KB. O teto aqui é metade disso: sobra
+   * folga de verdade e ainda assim o teste quebra quando o formato cresce
+   * demais, que é o gatilho que D14 mandou vigiar.
+   *
+   * Já quebrou uma vez, e funcionou: os campos digitados das Etapas 6 e 7
+   * levaram as cenas de ~580 para ~745 caracteres.
+   */
+  const TETO = 1000;
+
   it('fica muito abaixo do limiar de risco de 2 KB', () => {
     for (const example of EXAMPLES) {
       const url = `https://rafaelcrdelima.github.io/ALETRA/?cena=${sceneToParam(cenaDe(example))}`;
-      expect(url.length).toBeLessThan(700);
+      expect(url.length, `URL de ${example.label}`).toBeLessThan(TETO);
     }
   });
 });
@@ -152,6 +170,28 @@ describe('recusa de entrada malformada', () => {
   it('não carrega campos extras que alguém tenha enfiado no JSON', () => {
     const cena = sceneFromText(JSON.stringify({ ...BASE, malicioso: 'oi', __proto__: {} }));
     expect(Object.hasOwn(cena, 'malicioso')).toBe(false);
+  });
+});
+
+describe('os campos digitados das Etapas 6 e 7', () => {
+  it('sobrevivem à ida e volta pela URL', () => {
+    const restaurada = sceneFromParam(sceneToParam(BASE));
+    expect(restaurada.campos).toEqual(BASE.campos);
+  });
+
+  it('são opcionais — uma cena sem eles carrega com campos nulos', () => {
+    const { campos: _c, ...semCampos } = BASE;
+    expect(sceneFromText(JSON.stringify(semCampos)).campos).toBeNull();
+  });
+
+  it('são validados com o mesmo rigor do resto', () => {
+    const comCampos = (mudanca: Record<string, unknown>): string =>
+      JSON.stringify({ ...BASE, campos: { ...BASE.campos, ...mudanca } });
+
+    expect(() => sceneFromText(comCampos({ passo: -1 }))).toThrow(/passo: tem de ser positivo/);
+    expect(() => sceneFromText(comCampos({ usarDf: 'sim' }))).toThrow(/verdadeiro ou falso/);
+    expect(() => sceneFromText(comCampos({ x: ['1'] }))).toThrow(/campos\.x: esperava 2/);
+    expect(() => sceneFromText(comCampos({ f: 'z'.repeat(500) }))).toThrow(/longo demais/);
   });
 });
 

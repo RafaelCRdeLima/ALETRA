@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { read } from '../../core/reading';
 import { toWorld, type TangentFrame } from './frame';
+import { iluminado } from './materials';
 import { cone, segment } from './primitives';
 
 /**
@@ -56,24 +57,11 @@ export function buildVector(
   const hasFraction =
     (opts.showFraction ?? true) && Number.isFinite(value) && Math.abs(fraction) > 1e-6;
 
+  // Materiais compartilhados: ver materials.ts. Criar um por seta a cada quadro
+  // recompilava shader e triplicava o custo do arraste.
   const opacity = opts.opacity ?? 1;
-  const transparent = opacity < 1;
-
-  const wholeMaterial = new THREE.MeshStandardMaterial({
-    color: opts.colorWhole,
-    roughness: 0.35,
-    metalness: 0.0,
-    transparent,
-    opacity,
-  });
-  const fractionMaterial = new THREE.MeshStandardMaterial({
-    color: opts.colorFraction,
-    roughness: 0.3,
-    metalness: 0.0,
-    emissive: new THREE.Color(opts.colorFraction).multiplyScalar(0.35),
-    transparent,
-    opacity,
-  });
+  const wholeMaterial = iluminado(opts.colorWhole, opacity);
+  const fractionMaterial = iluminado(opts.colorFraction, opacity, 0.35);
 
   const base = frame.point;
   const cutPoint = base.clone().addScaledVector(direction, cut);
