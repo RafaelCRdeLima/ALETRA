@@ -744,21 +744,35 @@ const VOLTA_S = 7;
 const PAUSA_S = 1.6;
 
 /**
- * Move a seta ao longo das amostras, conforme o relógio.
+ * Move a seta ao longo das amostras.
  *
- * Roda no laço de animação e não em `update()`: o transporte já está calculado,
- * e mover um objeto que existe é uma matriz por quadro. Recalcular tudo a cada
- * quadro seria refazer sessenta vezes por segundo uma conta que não mudou.
+ * A posição vem do relógio quando o transporte anda sozinho, e do slider quando
+ * o aluno assume — pedido depois de ver a animação automática, e com razão:
+ * parar num canto, voltar e comparar é exatamente o que a versão automática não
+ * deixava fazer. Enquanto ela anda, o slider a acompanha e vira barra de
+ * progresso; ao ser arrastado, ele assume e a animação para. É a mecânica de um
+ * vídeo, que é o que o aluno já sabe operar sem instrução.
+ *
+ * Roda no laço de renderização e não em `update()`: o transporte já está
+ * calculado, e mover um objeto que existe é uma matriz por quadro. Recalcular
+ * tudo a cada quadro seria refazer sessenta vezes por segundo uma conta que não
+ * mudou.
  */
 function moverSetaDeslizante(): void {
   const amostras = amostrasDoGiro;
-  const ligada = animarTransporte && modo === 'holonomia' && amostras !== null;
+  const ligada = modo === 'holonomia' && amostras !== null;
   setaDeslizante.objeto.visible = ligada;
   if (!ligada || !amostras) return;
 
-  const ciclo = VOLTA_S + PAUSA_S;
-  const t = (performance.now() / 1000) % ciclo;
-  const fase = Math.min(1, t / VOLTA_S);
+  const controle = el<HTMLInputElement>('fase-laco');
+  let fase: number;
+  if (animarTransporte) {
+    const ciclo = VOLTA_S + PAUSA_S;
+    fase = Math.min(1, ((performance.now() / 1000) % ciclo) / VOLTA_S);
+    controle.value = String(fase);
+  } else {
+    fase = Number(controle.value);
+  }
 
   const indice = Math.min(
     amostras.pontos.length - 1,
@@ -776,7 +790,12 @@ function moverSetaDeslizante(): void {
   setaDeslizante.apontar(quadro.point, mundo.clone().divideScalar(comprimento), comprimento);
 
   const rotulo = el('fase-transporte');
-  rotulo.textContent = fase >= 1 ? 'chegou — e voltou girado' : `${Math.round(fase * 100)}% do laço`;
+  rotulo.textContent =
+    fase >= 0.999
+      ? 'chegou — e voltou girado'
+      : fase <= 0.001
+        ? 'na partida'
+        : `${Math.round(fase * 100)}% do laço`;
 }
 
 function atualizarPlanoTangente(f: TangentFrame): void {
@@ -1581,8 +1600,14 @@ function bindModo(): void {
   const animar = el<HTMLInputElement>('animar-transporte');
   animar.addEventListener('change', () => {
     animarTransporte = animar.checked;
-    if (!animarTransporte) el('fase-transporte').textContent = '';
-    update();
+  });
+
+  // Mexer no slider assume o controle: deixar a animação continuar por baixo
+  // faria a seta fugir do dedo do aluno a cada quadro.
+  el<HTMLInputElement>('fase-laco').addEventListener('input', () => {
+    if (!animarTransporte) return;
+    animarTransporte = false;
+    animar.checked = false;
   });
 
   const rangeAlcance = el<HTMLInputElement>('alcance');
