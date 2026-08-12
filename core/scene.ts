@@ -33,8 +33,16 @@ export interface SceneDoc {
   /** Segunda 1-form e segundo vetor: a 2-form da Etapa 5 é ω ∧ η, lida em (u, v). */
   readonly eta: readonly number[];
   readonly u: readonly number[];
+  /**
+   * A diagonal do laço da holonomia (Etapa 8), opcional.
+   *
+   * Estado próprio e não `u` reaproveitado: a escala de um vetor tangente e a de
+   * um laço diferem por uma ordem de grandeza, e servir aos dois com o mesmo
+   * campo fazia o laço nascer do tamanho de uma seta.
+   */
+  readonly laco: readonly number[] | null;
   /** Qual leitura a cena abre mostrando: folhas, células, circulação ou vão. */
-  readonly modo: 'uma' | 'duas' | 'derivada' | 'colchete';
+  readonly modo: 'uma' | 'duas' | 'derivada' | 'colchete' | 'holonomia';
   readonly maxVetor: number;
   /** Morfose v ⇄ v♭ da Etapa 3, em [0, 1]. */
   readonly bemol: number;
@@ -64,7 +72,7 @@ export interface SceneDoc {
 export const VERSAO_ATUAL = 1;
 
 /** As leituras que o produto sabe abrir. Cresce a cada etapa que traz uma nova. */
-const MODOS_CONHECIDOS = ['uma', 'duas', 'derivada', 'colchete'] as const;
+const MODOS_CONHECIDOS = ['uma', 'duas', 'derivada', 'colchete', 'holonomia'] as const;
 type ModoCena = (typeof MODOS_CONHECIDOS)[number];
 
 const ehModo = (valor: unknown): valor is ModoCena =>
@@ -210,6 +218,10 @@ export function sceneFromUnknown(bruto: unknown): SceneDoc {
     omega,
     eta: o['eta'] === undefined ? girar(omega) : exigirNumeros(o['eta'], 'cena.eta', 2),
     u: o['u'] === undefined ? girar(vetor) : exigirNumeros(o['u'], 'cena.u', 2),
+    laco:
+      o['laco'] === undefined || o['laco'] === null
+        ? null
+        : exigirNumeros(o['laco'], 'cena.laco', 2),
     modo,
     campos: lerCampos(o['campos']),
     maxVetor,

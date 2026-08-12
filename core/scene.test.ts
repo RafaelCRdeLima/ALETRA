@@ -27,6 +27,7 @@ const cenaDe = (example: MetricExample): SceneDoc =>
     omega: example.initialOmega,
     eta: girar(example.initialOmega),
     u: girar(example.initialVector),
+    laco: [0.8, 1.1],
     modo: 'uma',
     bemol: 0.4,
     metrica: example.components,
@@ -197,12 +198,19 @@ describe('os campos digitados das Etapas 6 e 7', () => {
 
 describe('compatibilidade com endereços gerados antes da Etapa 5', () => {
   it('preenche η e u com a rotação de 90° quando faltam', () => {
-    const { eta: _e, u: _u, modo: _m, ...semEtapa5 } = BASE;
+    const { eta: _e, u: _u, modo: _m, laco: _l, ...semEtapa5 } = BASE;
     const cena = sceneFromText(JSON.stringify(semEtapa5));
 
     expect(cena.eta).toEqual([-BASE.omega[1]!, BASE.omega[0]!]);
     expect(cena.u).toEqual([-BASE.vetor[1]!, BASE.vetor[0]!]);
     expect(cena.modo).toBe('uma');
+    // O laço não tem padrão no formato: quem sabe dimensioná-lo é a interface,
+    // que conhece os limites da carta. Nulo aqui quer dizer "use o seu padrão".
+    expect(cena.laco).toBeNull();
+  });
+
+  it('o laço sobrevive à ida e volta quando existe', () => {
+    expect(sceneFromParam(sceneToParam(BASE)).laco).toEqual([0.8, 1.1]);
   });
 
   it('o padrão nunca produz um ladrilho vazio', () => {

@@ -369,6 +369,55 @@ console.log('\n— colchete de Lie —');
   await page.waitForTimeout(300);
 }
 
+// Etapa 8: Gauss-Bonnet na tela. O critério do plano é o ângulo bater com a
+// área cercada na esfera, e o laço euclidiano devolver o vetor idêntico.
+console.log('\n— holonomia —');
+{
+  const num = (t) => Number(t.replace(/\./g, '').replace(',', '.'));
+  const angulo = async () => num((await page.textContent('#numeral-value')).trim());
+  const area = async () =>
+    num((await page.textContent('#numeral-gloss')).split('=').pop().replace(/[^\d,.-]/g, ''));
+
+  await page.selectOption('#seletor', 'esfera');
+  await page.selectOption('#modo', 'holonomia');
+  await page.waitForTimeout(800);
+  const a = await angulo();
+  const s = await area();
+  console.log(
+    `  esfera: ângulo = ${a.toFixed(3)} rad, área cercada = ${s.toFixed(3)}  ` +
+      `${Math.abs(Math.abs(a) - s) < 0.02 ? '✓ Gauss-Bonnet' : '✗ DIVERGE'}`,
+  );
+  const laco = await page.locator('.chart-panel .laco').count();
+  const transportado = await page.locator('.chart-panel .vetor-transportado').count();
+  console.log(`  laço desenhado=${laco === 1}, vetor transportado desenhado=${transportado === 1}`);
+  await page.screenshot({ path: `${OUT}/holonomia.png` });
+
+  await page.selectOption('#seletor', 'euclidiano');
+  await page.waitForTimeout(800);
+  const plano = await angulo();
+  console.log(
+    `  euclidiano: ângulo = ${plano.toFixed(4)} rad  ` +
+      `${Math.abs(plano) < 0.005 ? '✓ volta idêntico' : '✗ GIROU'}`,
+  );
+  await page.screenshot({ path: `${OUT}/holonomia-plana.png` });
+
+  await page.selectOption('#seletor', 'hiperbolico');
+  await page.waitForTimeout(800);
+  const hip = await angulo();
+  // O sinal absoluto depende da orientação do laço, que muda com o padrão de
+  // cada exemplo — o que tem conteúdo é a esfera e o hiperbólico girarem para
+  // lados **opostos**, porque K tem sinais opostos. Comparar com zero, como esta
+  // linha fazia antes, era testar a orientação por acidente.
+  console.log(
+    `  hiperbólico: ângulo = ${hip.toFixed(3)} rad (esfera ${a.toFixed(3)})  ` +
+      `${Math.sign(hip) === -Math.sign(a) ? '✓ gira para o outro lado' : '✗ MESMO SENTIDO'}`,
+  );
+
+  await page.selectOption('#seletor', 'esfera');
+  await page.selectOption('#modo', 'uma');
+  await page.waitForTimeout(300);
+}
+
 // Etapa 4: o critério é ida e volta *de verdade* — alterar a cena, copiar o
 // link, abrir numa aba nova sem estado nenhum, e conferir que voltou igual.
 // Recarregar a mesma aba não provaria nada: sobreviveria a qualquer cache.

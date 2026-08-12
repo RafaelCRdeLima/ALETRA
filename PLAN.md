@@ -323,6 +323,16 @@ de um depois do outro e vice-versa, e o gap visível é o colchete.
 
 ## Etapa 8 — Transporte paralelo em curva fechada → holonomia
 
+**Estado:** construída. Medido na tela: na esfera o ângulo dá **1,93 rad** e a área cercada dá
+**1,93** — Gauss-Bonnet acontecendo, não sendo afirmado. No plano euclidiano o ângulo é **0,0000** e
+o vetor volta idêntico; no hiperbólico ele gira para o lado oposto ao da esfera. O laço é editável
+arrastando o canto oposto, e o interior é ladrilhado pela 2-form de curvatura, cada célula valendo
+um radiano — a oportunidade que D12 anotou seis etapas antes.
+
+**Duas coisas que só o desenho revelou:** o laço precisou de estado próprio (reaproveitar $u$ fazia
+ele nascer do tamanho de uma seta, com giro de 0,06 rad e os dois vetores sobrepostos), e o laço
+precisou entrar no formato de cena, senão o link perdia justamente o que a etapa mostra.
+
 **Objetivo:** transportar um vetor ao longo de um laço fechado na superfície e mostrar que ele
 volta rodado — o ângulo de holonomia como número visível, ligado à curvatura englobada.
 

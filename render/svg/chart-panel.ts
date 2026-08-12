@@ -69,6 +69,17 @@ export interface ChartPanelState {
     readonly caminhoXY: readonly Float64Array[];
     readonly caminhoYX: readonly Float64Array[];
   } | null;
+  /**
+   * O laço da Etapa 8 e o vetor que voltou dele.
+   *
+   * O transportado é desenhado a partir do mesmo ponto que o original: é a
+   * sobreposição dos dois que mostra o giro. Separá-los mostraria dois vetores
+   * em lugares diferentes, que é outra história.
+   */
+  readonly loop: {
+    readonly caminho: readonly Float64Array[];
+    readonly transportado: Float64Array;
+  } | null;
   readonly point: Float64Array;
   readonly vector: Float64Array;
   /** Máscara quadrada de degeneração (1 = não serve), ou null. */
@@ -196,7 +207,45 @@ export function createChartPanel(callbacks: ChartPanelCallbacks): ChartPanel {
     drawCell(state);
     drawStack(state);
     drawBracket(state);
+    drawLoop(state);
     drawVector(state);
+  }
+
+  /**
+   * O laço e o vetor que voltou dele.
+   *
+   * O transportado sai do mesmo ponto que o original, por cima dele: o ângulo
+   * entre os dois *é* a leitura, e desenhá-los separados mostraria dois vetores
+   * distintos em vez de um que girou.
+   */
+  function drawLoop(state: ChartPanelState): void {
+    if (!state.loop) return;
+
+    const contorno = document.createElementNS(NS, 'polyline');
+    contorno.setAttribute(
+      'points',
+      state.loop.caminho.map((p) => toPixel(state, Array.from(p)).join(',')).join(' '),
+    );
+    contorno.setAttribute('class', 'laco');
+    layers.vector.appendChild(contorno);
+
+    const [sx, sy] = toPixel(state, Array.from(state.point));
+    const [tx, ty] = toPixel(state, [
+      state.point[0]! + state.loop.transportado[0]!,
+      state.point[1]! + state.loop.transportado[1]!,
+    ]);
+    layers.vector.appendChild(line(sx, sy, tx, ty, 'vetor-transportado'));
+
+    const angulo = Math.atan2(ty - sy, tx - sx);
+    const ponta = document.createElementNS(NS, 'path');
+    const t = 9;
+    ponta.setAttribute(
+      'd',
+      `M ${tx} ${ty} L ${tx - t * Math.cos(angulo - 0.4)} ${ty - t * Math.sin(angulo - 0.4)} ` +
+        `L ${tx - t * Math.cos(angulo + 0.4)} ${ty - t * Math.sin(angulo + 0.4)} Z`,
+    );
+    ponta.setAttribute('class', 'ponta-transportada');
+    layers.vector.appendChild(ponta);
   }
 
   /**

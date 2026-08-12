@@ -139,7 +139,8 @@ export interface SceneState {
   readonly omega: readonly number[];
   readonly eta: readonly number[];
   readonly u: readonly number[];
-  readonly modo: 'uma' | 'duas' | 'derivada' | 'colchete';
+  readonly laco: readonly number[];
+  readonly modo: 'uma' | 'duas' | 'derivada' | 'colchete' | 'holonomia';
   readonly bemol: number;
   /** A métrica como o autor digitou, que pode já ter divergido do exemplo. */
   readonly metrica: readonly string[];
@@ -158,6 +159,7 @@ export function exampleToScene(example: MetricExample, estado: SceneState): Scen
     omega: [...estado.omega],
     eta: [...estado.eta],
     u: [...estado.u],
+    laco: [...estado.laco],
     modo: estado.modo,
     campos: estado.campos,
     maxVetor: example.maxVector,

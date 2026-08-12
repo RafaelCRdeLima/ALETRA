@@ -112,6 +112,20 @@ body.colchete .so-duas-formas {
   display: none;
 }
 
+/*
+ * Na holonomia o vetor v é o que sai transportado, e `u` é reaproveitado como o
+ * canto oposto do laço. Não há one-form em cena.
+ */
+body.holonomia .bloco-omega,
+body.holonomia .derivado,
+body.holonomia .morfose {
+  display: none;
+}
+
+body.holonomia .so-duas-formas {
+  display: block;
+}
+
 /* O quadrilátero: dois caminhos e o vão que sobra entre as pontas. */
 .caminho-x {
   fill: none;
@@ -133,6 +147,25 @@ body.colchete .so-duas-formas {
   stroke: var(--brand);
   stroke-width: 4.5;
   stroke-linecap: round;
+}
+
+/* O laço da holonomia, e o vetor que voltou dele girado. */
+.laco {
+  fill: none;
+  stroke: rgba(244, 239, 233, 0.55);
+  stroke-width: 2;
+  stroke-dasharray: 7 5;
+  stroke-linejoin: round;
+}
+
+.vetor-transportado {
+  stroke: var(--brand);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.ponta-transportada {
+  fill: var(--brand);
 }
 
 .alternativa {

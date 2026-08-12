@@ -15,6 +15,8 @@ import { cellEdges, cellEdgesFromDensity, wedge } from '../core/wedge';
 import { differential0, differential1, type FormField } from '../core/exterior';
 import { flowPath } from '../core/flow';
 import { lieBracket } from '../core/lie';
+import { enclosedArea, holonomy, rectangleLoop } from '../core/transport';
+import { gaussianCurvature } from '../core/curvature';
 import { compileFormField, compileScalar } from '../core/metric-expr';
 import { ParseError } from '../core/expr';
 import { normSquared, type ChristoffelFn, type MetricFn } from '../core/metric';
@@ -48,6 +50,16 @@ interface Scene {
   omega: Form;
   /** Segunda 1-form: ω ∧ η é a 2-form da cena. */
   eta: Form;
+  /**
+   * A diagonal do laço da holonomia (Etapa 8).
+   *
+   * Estado próprio, e não `u` reaproveitado: a escala natural de um vetor
+   * tangente e a de um laço diferem por uma ordem de grandeza. Com `u` servindo
+   * aos dois, o laço nascia do tamanho de uma seta, o giro dava 0,06 rad, e os
+   * dois vetores se sobrepunham — a etapa inteira ficava invisível com os
+   * números certos.
+   */
+  laco: Float64Array;
   parseError: string | null;
   probe: MetricProbe | null;
 }
@@ -60,6 +72,33 @@ interface Scene {
  * contar células. A rotação garante que a grade nasça bem cruzada.
  */
 const perpendicular = (c: ArrayLike<number>): number[] => [-c[1]!, c[0]!];
+
+/**
+ * Um laço grande o bastante para o giro se ver.
+ *
+ * A holonomia é ∫∫K dA: num laço pequeno o ângulo é pequeno, e "o vetor volta
+ * rodado" vira "o vetor volta". A diagonal é uma fração generosa da carta,
+ * recortada para não passar dos limites a partir do ponto atual.
+ */
+function lacoPadrao(
+  bounds: { min: readonly number[]; max: readonly number[] },
+  ponto: readonly number[],
+): Float64Array {
+  const saida = new Float64Array(DIM);
+  for (let i = 0; i < DIM; i++) {
+    const span = bounds.max[i]! - bounds.min[i]!;
+    const desejado = 0.32 * span;
+    const cabe = bounds.max[i]! - ponto[i]!;
+    saida[i] = Math.min(desejado, Math.max(0.05 * span, cabe * 0.85));
+  }
+  return saida;
+}
+
+/**
+ * Qual vetor os controles de "u" editam: o segundo vetor, ou a diagonal do laço.
+ * Um par de campos serve aos dois porque nunca aparecem juntos.
+ */
+const alvoU = (): Float64Array => (modo === 'holonomia' ? scene.laco : scene.u);
 
 const el = <T extends HTMLElement>(id: string): T => {
   const node = document.getElementById(id);
@@ -98,8 +137,8 @@ let bemol = 0;
  * número corresponde a qual desenho, que é exatamente o trabalho que este
  * produto existe para poupar.
  */
-type Modo = 'uma' | 'duas' | 'derivada' | 'colchete';
-const MODOS: readonly Modo[] = ['uma', 'duas', 'derivada', 'colchete'];
+type Modo = 'uma' | 'duas' | 'derivada' | 'colchete' | 'holonomia';
+const MODOS: readonly Modo[] = ['uma', 'duas', 'derivada', 'colchete', 'holonomia'];
 const paramModo = params.get('modo');
 let modo: Modo = MODOS.includes(paramModo as Modo) ? (paramModo as Modo) : 'uma';
 
@@ -208,6 +247,7 @@ scene.parseError = erroCena;
 if (cenaInicial) {
   scene.eta = form(DIM, 1, [...cenaInicial.eta]);
   scene.u.set(cenaInicial.u);
+  if (cenaInicial.laco) scene.laco.set(cenaInicial.laco);
 }
 
 function buildScene(example: MetricExample): Scene {
@@ -224,6 +264,7 @@ function buildScene(example: MetricExample): Scene {
     u: Float64Array.from(perpendicular(example.initialVector)),
     omega: form(DIM, 1, [...example.initialOmega]),
     eta: form(DIM, 1, perpendicular(example.initialOmega)),
+    laco: lacoPadrao(example.bounds, example.initialPoint),
     parseError: null,
     probe: null,
   };
@@ -350,9 +391,9 @@ function render3D(
   const aviso = el<HTMLParagraphElement>('sem-mergulho');
   aviso.hidden = active;
   if (!active) {
-    aviso.textContent = modo === 'colchete'
-      ? 'O quadrilátero de fluxos vive na carta: é lá que o vão entre os dois ' +
-        'caminhos se lê. Esta etapa ainda não tem desenho em ℝ³.'
+    aviso.textContent = modo === 'colchete' || modo === 'holonomia'
+      ? 'Esta leitura vive na carta: é lá que o laço se fecha e o giro se lê. ' +
+        'Ainda não há desenho dela em ℝ³.'
       : scene.example.embedding === 'sphere'
         ? 'A métrica foi editada: o mergulho desenhado aqui é o da esfera original e já não ' +
           'corresponde ao que está escrito. O painel de carta continua correto.'
@@ -510,7 +551,7 @@ const chartPanel = createChartPanel({
     update();
   },
   onVectorUDrag: (a, b) => {
-    scene.u.set([a, b]);
+    alvoU().set([a, b]);
     update();
   },
 });
@@ -546,13 +587,25 @@ function movePoint(candidate: Float64Array): void {
  * tenha caminho de HTML interpolado, e deixar um aberto convida o próximo trecho
  * a interpolar algo que veio do aluno.
  */
-function paintNumeral(value: number, colchete: Colchete | null): void {
+function paintNumeral(value: number, colchete: Colchete | null, giro: Giro | null): void {
   const reading = read(value);
   el('numeral-value').textContent = Number.isFinite(value) ? ptBR(reading.value) : '—';
 
   // O colchete não conta nada: ele mede um vão. A glosa põe ao lado o que a
   // teoria prevê, t²·|[X,Y]|, porque é a comparação que distingue "abriu" de
   // "abriu pelo colchete" — sem ela, erro de integração passaria por geometria.
+  // A holonomia é um ângulo, e a glosa põe ao lado a área cercada — que é o
+  // mesmo número quando K = 1. É a leitura de Gauss-Bonnet acontecendo na tela:
+  // o ângulo não *parece* a área, ele **é** a área.
+  if (modo === 'holonomia') {
+    const alvo = el('numeral-gloss');
+    const forte = document.createElement('span');
+    forte.className = 'frac';
+    forte.textContent = giro ? ptBR(giro.area) : '—';
+    alvo.replaceChildren('área cercada = ', forte, ' rad de curvatura');
+    return;
+  }
+
   if (modo === 'colchete') {
     const previsto = colchete ? ptBR(colchete.previsto) : '—';
     const alvo = el('numeral-gloss');
@@ -642,6 +695,54 @@ function avaliarCampo(campo: FormField): Form {
   return form(DIM, 1, Array.from(out));
 }
 
+interface Giro {
+  readonly caminho: Float64Array[];
+  readonly transportado: Float64Array;
+  readonly angulo: number;
+  readonly area: number;
+  /** Densidade da 2-form de curvatura no centro do laço: K·√det g. */
+  readonly densidade: number;
+  readonly desvioDeNorma: number;
+}
+
+/**
+ * O laço, o vetor que voltou dele, e o ângulo.
+ *
+ * `u` é reaproveitado como o canto oposto do laço — não é um vetor tangente
+ * neste modo, é a diagonal do retângulo. Reusar a alça que já existe evita mais
+ * um controle numa barra já cheia, e o número nos campos continua querendo dizer
+ * a mesma coisa: um deslocamento em coordenadas.
+ *
+ * `densidade` alimenta o ladrilho: a 2-form de curvatura é K·dA, então cada
+ * célula dela vale exatamente **um radiano** de holonomia. Contar as células
+ * dentro do laço é ler o ângulo — a oportunidade que D12 anotou seis etapas
+ * atrás, cobrada aqui.
+ */
+function calcularGiro(): Giro | null {
+  const oposto = Float64Array.from([scene.x[0]! + scene.laco[0]!, scene.x[1]! + scene.laco[1]!]);
+  const caminho = rectangleLoop(scene.x, oposto);
+  const h = holonomy(scene.metric, scene.christoffel, caminho, scene.v, DIM, 32);
+  if (!Number.isFinite(h.angulo)) return null;
+
+  const centro = Float64Array.from([
+    scene.x[0]! + scene.laco[0]! / 2,
+    scene.x[1]! + scene.laco[1]! / 2,
+  ]);
+  const g = new Float64Array(DIM * DIM);
+  scene.metric(centro, g);
+  const det = g[0]! * g[3]! - g[1]! * g[2]!;
+  const K = gaussianCurvature(scene.metric, scene.christoffel, centro);
+
+  return {
+    caminho,
+    transportado: h.final,
+    angulo: h.angulo,
+    area: enclosedArea(scene.metric, scene.x, oposto, DIM, 32),
+    densidade: det > 0 && Number.isFinite(K) ? K * Math.sqrt(det) : 0,
+    desvioDeNorma: Math.abs(h.normaFinal - h.normaInicial),
+  };
+}
+
 interface Colchete {
   readonly caminhoXY: Float64Array[];
   readonly caminhoYX: Float64Array[];
@@ -703,6 +804,7 @@ function update(): void {
   const duasFormas = modo === 'duas';
   const derivada = modo === 'derivada';
   const colchete = modo === 'colchete' ? calcularColchete() : null;
+  const giro = modo === 'holonomia' ? calcularGiro() : null;
   const comCelulas = duasFormas || derivada;
 
   // No modo derivada ω é o campo digitado (ou df dele), avaliado em p para a
@@ -717,7 +819,9 @@ function update(): void {
 
   const sigma = duasFormas ? wedge(scene.omega, scene.eta) : dOmega;
   const value =
-    modo === 'colchete'
+    modo === 'holonomia'
+      ? (giro?.angulo ?? 0)
+      : modo === 'colchete'
       ? (colchete?.vao ?? 0)
       : comCelulas
         ? sigma
@@ -734,7 +838,7 @@ function update(): void {
     {
       components: finitos(omegaLocal.components),
       classe: 'folha',
-      opacidade: modo === 'colchete' ? 0 : opa.omega,
+      opacidade: modo === 'colchete' || modo === 'holonomia' ? 0 : opa.omega,
     },
     duasFormas
       ? { components: scene.eta.components, classe: 'folha-eta', opacidade: 0.92 }
@@ -752,7 +856,15 @@ function update(): void {
       bounds: scene.example.bounds,
       names: scene.example.chart.symbols,
       stacks: camadas,
-      cell: comCelulas
+      cell: giro
+        ? {
+            // O retângulo do laço, ladrilhado pela 2-form de curvatura: cada
+            // célula vale um radiano de holonomia.
+            u: Float64Array.from([scene.laco[0]!, 0]),
+            v: Float64Array.from([0, scene.laco[1]!]),
+            lattice: cellEdgesFromDensity(giro.densidade),
+          }
+        : comCelulas
         ? {
             u: scene.u,
             v: scene.v,
@@ -764,7 +876,8 @@ function update(): void {
               : cellEdgesFromDensity(dOmega?.components[0] ?? 0),
           }
         : null,
-      vectorU: comCelulas ? scene.u : null,
+      vectorU: comCelulas ? scene.u : giro ? scene.laco : null,
+      loop: giro ? { caminho: giro.caminho, transportado: giro.transportado } : null,
       bracket: colchete
         ? { caminhoXY: colchete.caminhoXY, caminhoYX: colchete.caminhoYX }
         : null,
@@ -772,14 +885,18 @@ function update(): void {
       vector: scene.v,
       mask: scene.mask,
       maskResolution: MASK_RESOLUTION,
-      cut: comCelulas ? null : { value, whole: read(value).whole },
+      cut: comCelulas || giro ? null : { value, whole: read(value).whole },
     });
   }
 
   // O quadrilátero de fluxos ainda não tem desenho em ℝ³ — ele vive na carta.
   // Mostrar a cena 3D sem ele exibiria um vetor que não participa da leitura.
-  render3D(value, comMergulho && modo !== 'colchete', vBemol, comCelulas, omegaLocal);
-  paintNumeral(value, colchete);
+  // Nem o quadrilátero de fluxos nem o laço da holonomia têm desenho em ℝ³:
+  // os dois vivem na carta. Mostrar a cena 3D sem eles exibiria um vetor que
+  // não participa da leitura.
+  const tresDe = comMergulho && modo !== 'colchete' && modo !== 'holonomia';
+  render3D(value, tresDe, vBemol, comCelulas, omegaLocal);
+  paintNumeral(value, colchete, giro);
   paintBemol(vBemol);
   syncVectorFields();
   syncUFields();
@@ -838,6 +955,7 @@ function cenaAtual(): SceneDoc {
     omega: Array.from(scene.omega.components),
     eta: Array.from(scene.eta.components),
     u: Array.from(scene.u),
+    laco: Array.from(scene.laco),
     modo,
     bemol,
     metrica: scene.components,
@@ -992,7 +1110,7 @@ function buildUFields(): void {
       input.addEventListener('input', () => {
         const valor = Number(input.value.replace(',', '.').trim());
         if (!Number.isFinite(valor)) return;
-        scene.u[index] = valor;
+        alvoU()[index] = valor;
         update();
       });
       input.addEventListener('blur', syncUFields);
@@ -1007,7 +1125,7 @@ function buildUFields(): void {
 function syncUFields(): void {
   for (const input of document.querySelectorAll<HTMLInputElement>('#campos-u input')) {
     if (input === document.activeElement) continue;
-    input.value = ptBR(scene.u[Number(input.dataset['componente'])] ?? 0);
+    input.value = ptBR(alvoU()[Number(input.dataset['componente'])] ?? 0);
   }
 }
 
@@ -1040,12 +1158,28 @@ const ROTULO_NUMERAL: Readonly<Record<Modo, string>> = {
   duas: '(ω∧η)(u, v)',
   derivada: 'dω(u, v)',
   colchete: '|vão|',
+  holonomia: 'ângulo (rad)',
 };
 
+/**
+ * `u` muda de papel conforme a leitura: segundo vetor no ∧, canto oposto do laço
+ * na holonomia. O rótulo do bloco acompanha, senão o número na tela quer dizer
+ * uma coisa e o título diz outra.
+ */
+function rotularBlocoU(): void {
+  const bloco = el('campos-u').parentElement;
+  const titulo = bloco?.querySelector('.bloco-titulo');
+  if (titulo) {
+    titulo.textContent = modo === 'holonomia' ? 'Laço (canto oposto)' : 'Segundo vetor u';
+  }
+}
+
 function aplicarModo(): void {
+  rotularBlocoU();
   document.body.classList.toggle('duas-formas', modo === 'duas');
   document.body.classList.toggle('derivada', modo === 'derivada');
   document.body.classList.toggle('colchete', modo === 'colchete');
+  document.body.classList.toggle('holonomia', modo === 'holonomia');
   el<HTMLSelectElement>('modo').value = modo;
   el('numeral-label').textContent = ROTULO_NUMERAL[modo];
 }
@@ -1223,7 +1357,7 @@ stage.renderer.domElement.addEventListener('pointermove', (event) => {
     // vetores nasce dentro dele por construção — o recorte por |·|_g é o que
     // impede de sair da vizinhança desenhada.
     if (!raycaster.ray.intersectPlane(tangentPlane, hit)) return;
-    fromWorld(frame, hit.sub(frame.point), drag === 'vectorU' ? scene.u : scene.v);
+    fromWorld(frame, hit.sub(frame.point), drag === 'vectorU' ? alvoU() : scene.v);
     update();
   }
 });
