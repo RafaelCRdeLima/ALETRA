@@ -23,12 +23,13 @@ import { ParseError } from '../core/expr';
 import { normSquared, type ChristoffelFn, type MetricFn } from '../core/metric';
 import { compileMetric, componentIndices } from '../core/metric-expr';
 import { read } from '../core/reading';
-import { sphereChartOf } from '../core/sphere';
+import { sphereChartOf, sphereEmbed } from '../core/sphere';
 import { createChartPanel } from '../render/svg/chart-panel';
 import { fromWorld, sphereFrame, toWorld, type TangentFrame } from '../render/three/frame';
 import { disposeChildren } from '../render/three/primitives';
 import { basico } from '../render/three/materials';
 import { createStage, PALETTE } from '../render/three/scene';
+import { buildCurve } from '../render/three/curve';
 import { buildStack } from '../render/three/stack';
 import { buildVector } from '../render/three/vector';
 import { veilTexture } from '../render/three/veil';
@@ -142,6 +143,9 @@ type Modo = 'uma' | 'duas' | 'derivada' | 'colchete' | 'holonomia' | 'geodesica'
 const MODOS: readonly Modo[] = ['uma', 'duas', 'derivada', 'colchete', 'holonomia', 'geodesica'];
 const paramModo = params.get('modo');
 let modo: Modo = MODOS.includes(paramModo as Modo) ? (paramModo as Modo) : 'uma';
+
+/** Pedido de reenquadramento, atendido no próximo desenho e só uma vez. */
+let precisaEnquadrar = true;
 
 /**
  * O campo ω e a função f da Etapa 6, como texto.
@@ -313,11 +317,13 @@ const stage = createStage(el('stage'), R);
 // leem.
 if (MODO_LIMPO) stage.camera.position.multiplyScalar(0.82);
 const veil = veilTexture();
+/** Curvas da carta desenhadas sobre a superfície: fluxos, laço, geodésicas. */
+const curvasGroup = new THREE.Group();
 const tangentGroup = new THREE.Group();
 const stackGroup = new THREE.Group();
 const bemolGroup = new THREE.Group();
 const vectorGroup = new THREE.Group();
-stage.scene.add(tangentGroup, stackGroup, bemolGroup, vectorGroup);
+stage.scene.add(tangentGroup, stackGroup, bemolGroup, vectorGroup, curvasGroup);
 
 const pointHandle = new THREE.Mesh(
   new THREE.SphereGeometry(0.045, 24, 16),
@@ -372,16 +378,164 @@ function finitos(components: Float64Array): Float64Array {
   return components;
 }
 
-function render3D(
-  value: number,
-  active: boolean,
-  vBemol: Form,
-  comCelulas: boolean,
-  omegaLocal: Form,
-): void {
+interface Cena3D {
+  readonly value: number;
+  readonly active: boolean;
+  readonly vBemol: Form;
+  readonly comCelulas: boolean;
+  readonly omegaLocal: Form;
+  readonly colchete: Colchete | null;
+  readonly giro: Giro | null;
+  readonly traco: Traco | null;
+}
+
+/** O mergulho da esfera, na forma que `buildCurve` espera. */
+const naEsfera = (x: Float64Array, out: Float64Array): void => sphereEmbed(R, x, out);
+
+/**
+ * As curvas das Etapas 7, 8 e 9 sobre a superfície.
+ *
+ * Estas leituras vivem em regiões grandes da carta, não na vizinhança de p — o
+ * disco tangente e as pilhas seriam ruído por cima delas, e por isso somem.
+ * Aqui o que importa é o caminho na superfície: o quadrilátero que não fecha, o
+ * laço que gira o vetor, a geodésica que segue reta.
+ */
+function desenharCurvas(d: Cena3D): THREE.Vector3 | null {
+  disposeChildren(curvasGroup);
+
+  const juntar = (o: THREE.Object3D | null): void => {
+    if (o) curvasGroup.add(o);
+  };
+
+  // Centro do que está sendo desenhado, para a câmera saber para onde olhar.
+  const centro = new THREE.Vector3();
+  let quantos = 0;
+  const bruto = new Float64Array(3);
+  const somar = (pontos: readonly Float64Array[]): void => {
+    for (const ponto of pontos) {
+      naEsfera(ponto, bruto);
+      if (!Number.isFinite(bruto[0]!)) continue;
+      centro.add(new THREE.Vector3(bruto[0]!, bruto[1]!, bruto[2]!));
+      quantos++;
+    }
+  };
+
+  if (d.colchete) {
+    somar(d.colchete.caminhoXY);
+    somar(d.colchete.caminhoYX);
+    juntar(buildCurve(d.colchete.caminhoXY, naEsfera, {
+      raioDoTubo: 0.012, color: PALETTE.vector,
+    }));
+    juntar(buildCurve(d.colchete.caminhoYX, naEsfera, {
+      raioDoTubo: 0.012, color: PALETTE.eta,
+    }));
+    const fimXY = d.colchete.caminhoXY[d.colchete.caminhoXY.length - 1];
+    const fimYX = d.colchete.caminhoYX[d.colchete.caminhoYX.length - 1];
+    if (fimXY && fimYX) {
+      // O vão desenhado por último e mais grosso: é ele que se lê.
+      juntar(buildCurve([fimYX, fimXY], naEsfera, {
+        raioDoTubo: 0.026, color: PALETTE.brand, emissiveScale: 0.5, levantar: 0.016,
+        subdividir: 8,
+      }));
+    }
+  }
+
+  if (d.giro) {
+    somar(d.giro.caminho);
+    // Mais grosso e mais levantado que as outras curvas: um laço que cerca área
+    // grande dá a volta na esfera, e o trecho visível de cada vez é curto — se
+    // ele for fino também, some.
+    juntar(buildCurve(d.giro.caminho, naEsfera, {
+      raioDoTubo: 0.017, color: PALETTE.handle, opacity: 0.9,
+      emissiveScale: 0.3, levantar: 0.012, subdividir: 24,
+    }));
+    // O transportado sai do mesmo ponto que o original: é a sobreposição dos
+    // dois que mostra o giro.
+    curvasGroup.add(
+      buildVector(frame, d.giro.transportado, 0, {
+        shaftRadius: 0.017, headLength: 0.085, headRadius: 0.045,
+        colorWhole: PALETTE.brand, colorFraction: PALETTE.brand, showFraction: false,
+      }),
+    );
+  }
+
+  if (d.traco) {
+    somar(d.traco.principal.caminho);
+    if (d.traco.vizinha) {
+      juntar(buildCurve(d.traco.vizinha.caminho, naEsfera, {
+        raioDoTubo: 0.008, color: PALETTE.fraction, opacity: 0.5,
+      }));
+    }
+    juntar(buildCurve(d.traco.principal.caminho, naEsfera, {
+      raioDoTubo: 0.015, color: PALETTE.fraction, emissiveScale: 0.35,
+    }));
+  }
+
+  return quantos > 0 ? centro.divideScalar(quantos) : null;
+}
+
+/**
+ * Vira a câmera para o que a leitura desenhou.
+ *
+ * Um laço que cerca área grande dá a volta na esfera, e da câmera padrão quase
+ * tudo dele fica atrás — o desenho existia e não se via. Encolher o laço mataria
+ * o ângulo junto; girar a câmera não custa nada à matemática.
+ *
+ * Só ao trocar de leitura, nunca a cada quadro: o aluno pode orbitar depois, e
+ * reenquadrar continuamente prenderia a câmera e tiraria dele o controle.
+ */
+function enquadrar(centro: THREE.Vector3 | null): void {
+  if (!centro || centro.lengthSq() < 1e-9) return;
+  const distancia = stage.camera.position.length();
+  stage.camera.position.copy(centro).normalize().multiplyScalar(distancia);
+  stage.controls.target.set(0, 0, 0);
+  stage.controls.update();
+}
+
+/**
+ * O paralelogramo de u e v, no plano tangente.
+ *
+ * Em 2D ele é o que transforma "há um ladrilho" em "há **este** número de
+ * células". Em 3D a grade das duas pilhas já aparecia, mas sem a região cercada
+ * não havia o que contar — era ladrilho sem recorte.
+ */
+function paralelogramoTangente(): THREE.Object3D | null {
+  const a = toWorld(frame, scene.u, new THREE.Vector3());
+  const b = toWorld(frame, scene.v, new THREE.Vector3());
+  if (a.lengthSq() < 1e-12 || b.lengthSq() < 1e-12) return null;
+
+  const p = frame.point;
+  const cantos = [
+    p.clone(),
+    p.clone().add(a),
+    p.clone().add(a).add(b),
+    p.clone().add(b),
+  ];
+  const posicoes = new Float32Array(12);
+  cantos.forEach((c, i) => {
+    posicoes[i * 3] = c.x;
+    posicoes[i * 3 + 1] = c.y;
+    posicoes[i * 3 + 2] = c.z;
+  });
+
+  const geometria = new THREE.BufferGeometry();
+  geometria.setAttribute('position', new THREE.BufferAttribute(posicoes, 3));
+  geometria.setIndex([0, 1, 2, 2, 3, 0]);
+  const malha = new THREE.Mesh(geometria, basico(PALETTE.vector, 0.16, { depthWrite: false }));
+  malha.renderOrder = 3;
+  return malha;
+}
+
+function render3D(d: Cena3D): void {
+  const { value, active, vBemol, comCelulas, omegaLocal } = d;
   painelAtivo = active;
   stage.renderer.domElement.style.display = active ? '' : 'none';
+  // As leituras de curva ocupam a carta inteira; as locais vivem em volta de p.
+  // Misturar as duas famílias na mesma cena entulha as duas.
+  const local = modo === 'uma' || modo === 'duas' || modo === 'derivada';
+
   for (const object of [
+    curvasGroup,
     tangentGroup,
     stackGroup,
     bemolGroup,
@@ -393,14 +547,15 @@ function render3D(
     object.visible = active;
   }
 
+  tangentGroup.visible = active && local;
+  stackGroup.visible = active && local;
+  bemolGroup.visible = active && local;
+
   const aviso = el<HTMLParagraphElement>('sem-mergulho');
   aviso.hidden = active;
   if (!active) {
     aviso.textContent =
-      modo === 'colchete' || modo === 'holonomia' || modo === 'geodesica'
-      ? 'Esta leitura vive na carta: é lá que o laço se fecha e o giro se lê. ' +
-        'Ainda não há desenho dela em ℝ³.'
-      : scene.example.embedding === 'sphere'
+      scene.example.embedding === 'sphere'
         ? 'A métrica foi editada: o mergulho desenhado aqui é o da esfera original e já não ' +
           'corresponde ao que está escrito. O painel de carta continua correto.'
         : `Esta métrica não tem um mergulho em ℝ³ definido neste estágio — ${scene.example.label} ` +
@@ -473,6 +628,20 @@ function render3D(
       }),
     );
   }
+
+  const centroDasCurvas = desenharCurvas(d);
+  if (precisaEnquadrar) {
+    enquadrar(centroDasCurvas);
+    precisaEnquadrar = false;
+  }
+  if (comCelulas) {
+    const quad = paralelogramoTangente();
+    if (quad) curvasGroup.add(quad);
+  }
+  // No colchete o vetor v não participa da leitura; nas outras curvas ele é a
+  // direção de partida ou o que sai transportado, e fica.
+  vectorGroup.visible = modo !== 'colchete';
+  tipHandle.visible = modo !== 'colchete';
 
   pointHandle.position.copy(frame.point);
   tipHandle.position.copy(frame.point).add(toWorld(frame, scene.v));
@@ -989,12 +1158,16 @@ function update(): void {
 
   // O quadrilátero de fluxos ainda não tem desenho em ℝ³ — ele vive na carta.
   // Mostrar a cena 3D sem ele exibiria um vetor que não participa da leitura.
-  // Nem o quadrilátero de fluxos nem o laço da holonomia têm desenho em ℝ³:
-  // os dois vivem na carta. Mostrar a cena 3D sem eles exibiria um vetor que
-  // não participa da leitura.
-  const tresDe =
-    comMergulho && modo !== 'colchete' && modo !== 'holonomia' && modo !== 'geodesica';
-  render3D(value, tresDe, vBemol, comCelulas, omegaLocal);
+  render3D({
+    value,
+    active: comMergulho,
+    vBemol,
+    comCelulas,
+    omegaLocal,
+    colchete,
+    giro,
+    traco,
+  });
   paintNumeral(value, colchete, giro, traco);
   paintBemol(vBemol);
   syncVectorFields();
@@ -1288,6 +1461,7 @@ function aplicarModo(): void {
 function bindModo(): void {
   el<HTMLSelectElement>('modo').addEventListener('change', (event) => {
     modo = (event.target as HTMLSelectElement).value as Modo;
+    precisaEnquadrar = true;
     aplicarModo();
     update();
   });

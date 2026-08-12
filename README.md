@@ -47,7 +47,9 @@ ou `?exemplo=schwarzschild` escolhem a superfície.
 
 [Ver o modo limpo →](https://rafaelcrdelima.github.io/ALETRA/?limpo=1)
 
-As seis leituras do seletor: contar folhas ⟨ω,v⟩, contar células (ω∧η)(u,v),
+Todas as seis leituras existem nos **dois painéis**: na carta e, quando a
+superfície tem mergulho conhecido, desenhadas sobre ela em ℝ³. As seis leituras
+do seletor: contar folhas ⟨ω,v⟩, contar células (ω∧η)(u,v),
 circulação dω(u,v) com d²=0 colapsando na tela, o vão dos fluxos [X,Y],
 holonomia (onde o ângulo **é** a área cercada) e geodésicas com desvio
 geodésico. O caminho está em [PLAN.md](PLAN.md), e
