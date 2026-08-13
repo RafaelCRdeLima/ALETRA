@@ -17,9 +17,10 @@ import type { ChartBounds } from '../../core/degenerate';
  */
 export function buildSurface(
   embedding: Embedding,
-  bounds: ChartBounds,
+  limites: ChartBounds,
   divisoes = 96,
 ): THREE.BufferGeometry {
+  const bounds = embedding.domain?.(limites) ?? limites;
   const nu = divisoes;
   const nv = Math.max(16, Math.round(divisoes / 2));
 
@@ -71,10 +72,11 @@ export function buildSurface(
  */
 export function buildChartGrid(
   embedding: Embedding,
-  bounds: ChartBounds,
+  limites: ChartBounds,
   linhas = 12,
   amostras = 64,
 ): THREE.BufferGeometry {
+  const bounds = embedding.domain?.(limites) ?? limites;
   const pontos: number[] = [];
   const x = new Float64Array(2);
   const p = new Float64Array(3);

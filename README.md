@@ -25,7 +25,12 @@ toda a geometria é calculada na aba aberta, na máquina de quem abriu.
 
 - **Oito superfícies**: esfera, toro, cilindro, cone, fita de Möbius, plano
   euclidiano, plano hiperbólico e a fatia equatorial de Schwarzschild — ou
-  qualquer métrica que você digitar nos campos `g_ij`.
+  qualquer métrica que você digitar nos campos `g_ij`. Seis delas têm mergulho
+  em ℝ³ desenhado ao lado da carta.
+- **O funil de Schwarzschild**, que é o paraboloide de Flamm: não uma ilustração
+  de buraco negro, e sim a métrica digitada nos campos, isometricamente
+  mergulhada. Cada círculo tem raio r, mas a distância entre dois vizinhos é
+  maior que Δr — e o funil acaba no horizonte, onde a carta segue sozinha.
 - **Os três sinais de curvatura**, alcançáveis arrastando: o cilindro e o cone
   são planos por dentro embora entortem no espaço; o toro tem K > 0 por fora,
   K < 0 por dentro e K = 0 nos círculos de cima e de baixo, tudo na mesma

@@ -20,15 +20,20 @@ import { compileMetric } from './metric-expr';
 
 const DIM = 2;
 
-/** Pontos internos da carta, longe das bordas onde a carta degenera. */
+/**
+ * Pontos internos da carta, longe das bordas onde a carta degenera — e dentro
+ * do domínio do mergulho, que em Schwarzschild é menor que a carta.
+ */
 const amostrasDe = (e: MetricExample): Float64Array[] => {
+  const embedding = embeddingById(e.embedding);
+  const b = embedding?.domain?.(e.bounds) ?? e.bounds;
   const pontos: Float64Array[] = [];
   for (const a of [0.25, 0.5, 0.75]) {
-    for (const b of [0.3, 0.65]) {
+    for (const c of [0.3, 0.65]) {
       pontos.push(
         Float64Array.from([
-          e.bounds.min[0]! + a * (e.bounds.max[0]! - e.bounds.min[0]!),
-          e.bounds.min[1]! + b * (e.bounds.max[1]! - e.bounds.min[1]!),
+          b.min[0]! + a * (b.max[0]! - b.min[0]!),
+          b.min[1]! + c * (b.max[1]! - b.min[1]!),
         ]),
       );
     }
@@ -195,6 +200,16 @@ describe('a curvatura de cada superfície nova', () => {
     }
   });
 
+  it('o paraboloide de Flamm segue K = −M/r³', () => {
+    const flamm = acharPorId('schwarzschild');
+    for (const x of amostrasDe(flamm)) {
+      expect(curvaturaDe(flamm, x), `r = ${x[0]!.toFixed(2)}`).toBeCloseTo(
+        flamm.closedCurvature!(x),
+        6,
+      );
+    }
+  });
+
   it('o toro tem os três sinais, e cada um no seu lugar', () => {
     // K = cos v / (a (R + a cos v)) com R = 2, a = 0,8.
     const toro = acharPorId('toro');
@@ -217,5 +232,77 @@ describe('a curvatura de cada superfície nova', () => {
       const K = curvaturaDe(toro, Float64Array.from([1.3, v]));
       expect(K).toBeCloseTo(Math.cos(v) / (0.8 * (2 + 0.8 * Math.cos(v))), 4);
     }
+  });
+});
+
+describe('o funil de Schwarzschild — o que as "esferas concêntricas" dizem', () => {
+  const exemplo = EXAMPLES.find((e) => e.id === 'schwarzschild')!;
+  const metric = compileMetric({ chart: exemplo.chart, components: exemplo.components });
+
+  /** Distância própria de r₁ a r₂ ao longo de φ constante: ∫ √g_rr dr. */
+  const distancia = (r1: number, r2: number, n = 20000): number => {
+    const g = new Float64Array(DIM * DIM);
+    const x = new Float64Array(DIM);
+    const passo = (r2 - r1) / n;
+    let soma = 0;
+    for (let i = 0; i < n; i++) {
+      x[0] = r1 + (i + 0.5) * passo;
+      metric(x, g);
+      soma += Math.sqrt(g[0]!);
+    }
+    return soma * passo;
+  };
+
+  it('cada círculo tem comprimento 2πr, como no plano', () => {
+    // g_φφ = r²: a circunferência não guarda nenhuma surpresa. Toda a
+    // informação está na direção radial, e é isso que faz o desenho ser um
+    // funil e não uma esfera.
+    const g = new Float64Array(DIM * DIM);
+    for (const r of [3, 6, 11]) {
+      metric(Float64Array.from([r, 0.4]), g);
+      expect(Math.sqrt(g[3]!) * 2 * Math.PI).toBeCloseTo(2 * Math.PI * r, 9);
+    }
+  });
+
+  it('mas a distância entre dois círculos é maior que a diferença dos raios', () => {
+    for (const [r1, r2] of [
+      [6, 7],
+      [3, 4],
+      [2.1, 2.6],
+    ] as const) {
+      expect(distancia(r1, r2), `de r=${r1} a r=${r2}`).toBeGreaterThan(r2 - r1);
+    }
+  });
+
+  it('e a razão entre as duas cresce sem limite perto da garganta', () => {
+    const razao = (r: number, dr = 0.01): number => distancia(r, r + dr) / dr;
+    expect(razao(2.5)).toBeGreaterThan(razao(10));
+    expect(razao(2.01)).toBeGreaterThan(razao(2.5));
+    // Longe do buraco a métrica volta a ser a do plano — mas por cima, e o
+    // desvio é da ordem de M/r: em r=2000 sobra 1/2000, e não zero.
+    expect(razao(2000)).toBeGreaterThan(1);
+    expect(razao(2000)).toBeLessThan(1.001);
+
+    /*
+     * A divergência é pontual, e é por isso que ela é medida com √g_rr e não
+     * com a razão acima: com um Δr fixo, a média sobre o intervalo lava o
+     * infinito (de r=2,0001 com Δr=0,01 sai só 25,6). O fator de esticamento
+     * radial no ponto é 1/√(1−2M/r), e esse não tem teto.
+     */
+    const g = new Float64Array(DIM * DIM);
+    const esticamento = (r: number): number => {
+      metric(Float64Array.from([r, 0]), g);
+      return Math.sqrt(g[0]!);
+    };
+    expect(esticamento(2.0001)).toBeGreaterThan(100);
+    expect(esticamento(2.000001)).toBeGreaterThan(1000);
+    expect(esticamento(2.5)).toBeCloseTo(1 / Math.sqrt(1 - 2 / 2.5), 9);
+  });
+
+  it('mas o funil não fica infinitamente longo — a distância até o horizonte é finita', () => {
+    // O que diverge é a inclinação da parede, não o comprimento dela. Confundir
+    // as duas coisas é o erro clássico de leitura deste desenho.
+    expect(distancia(2, 3)).toBeLessThan(4);
+    expect(distancia(2, 3)).toBeGreaterThan(2);
   });
 });

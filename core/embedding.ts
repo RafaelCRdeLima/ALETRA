@@ -21,6 +21,8 @@
  * métrica digitada, componente a componente.
  */
 
+import type { ChartBounds } from './degenerate';
+
 /** O passo das derivadas do mergulho, na mesma faixa de D5. */
 export const DEFAULT_H_MERGULHO = 1e-5;
 
@@ -33,6 +35,17 @@ export interface Embedding {
    * sem a volta, não há como saber que coordenada o aluno agarrou.
    */
   readonly chartOf: (p: readonly number[], out: Float64Array) => void;
+  /**
+   * Onde o mergulho existe, quando não é a carta inteira.
+   *
+   * Até aqui carta e superfície coincidiam, e a pergunta não aparecia. Em
+   * Schwarzschild elas divergem: a carta vai de r=0,2 a r=12 de propósito,
+   * porque é dentro do horizonte que D7 tem o que dizer, e o paraboloide de
+   * Flamm existe só a partir de r=2M. Recortar os limites de desenho é o
+   * jeito honesto — a superfície **acaba** onde acaba, e quem continua
+   * falando de r<2M é o painel de carta, que é onde aquilo ainda é geometria.
+   */
+  readonly domain?: (bounds: ChartBounds) => ChartBounds;
 }
 
 /**
@@ -249,12 +262,62 @@ export function moebiusEmbedding(R = 2): Embedding {
   };
 }
 
+/**
+ * A fatia equatorial de Schwarzschild, mergulhada de verdade: o paraboloide de
+ * Flamm, em (r, φ).
+ *
+ * Com z(r) = 2√(2M(r−2M)), a superfície de revolução (r cos φ, r sen φ, z(r))
+ * tem g_rr = 1 + z'² = 1/(1−2M/r) e g_φφ = r². Não é uma ilustração do buraco
+ * negro: é **a mesma métrica que está digitada nos campos**, isometricamente
+ * mergulhada. Por isso o teste de consistência do catálogo vale aqui como nas
+ * outras.
+ *
+ * O funil é a resposta ao pedido de "esferas concêntricas". Cada círculo de r
+ * constante é o equador de uma dessas esferas, e tem comprimento 2πr — mas a
+ * distância *entre* dois círculos vizinhos, medida sobre o funil, é maior que
+ * Δr, e a razão entre as duas cresce sem limite ao se aproximar da garganta.
+ * (O funil em si não fica infinitamente longo: o que diverge é a inclinação,
+ * não o comprimento — a distância própria até o horizonte é finita.) É
+ * exatamente o que 1/(1−2M/r) diz, e é o que o desenho tem para dizer.
+ *
+ * Ele acaba em r=2M, e isso não é limitação do desenho. Dentro do horizonte a
+ * fatia estática não é uma superfície do espaço, e nenhum mergulho a alcança.
+ * A carta continua desenhando lá, hachurada — as duas imagens discordam, e
+ * dessa vez a discordância é o conteúdo.
+ */
+export function flammEmbedding(M = 1): Embedding {
+  const garganta = 2 * M;
+  // A borda desenhada fica um pouco acima da garganta: em r=2M exatamente,
+  // z' = √(2M/(r−2M)) diverge, e a base tangente por diferença finita junto.
+  const rMin = garganta * 1.02;
+  return {
+    id: 'schwarzschild',
+    point: (x, out) => {
+      // Guarda, não geometria: nada deveria avaliar aqui abaixo — `domain`
+      // recorta a malha e `probeMetric` impede o ponto de entrar no horizonte.
+      const r = Math.max(x[0]!, rMin);
+      out[0] = r * Math.cos(x[1]!);
+      out[1] = r * Math.sin(x[1]!);
+      out[2] = 2 * Math.sqrt(2 * M * (r - garganta));
+    },
+    chartOf: (p, out) => {
+      out[0] = Math.hypot(p[0]!, p[1]!);
+      out[1] = Math.atan2(p[1]!, p[0]!);
+    },
+    domain: (b) => ({
+      min: [Math.max(b.min[0]!, rMin), b.min[1]!],
+      max: [...b.max],
+    }),
+  };
+}
+
 const CATALOGO: Readonly<Record<string, Embedding>> = {
   esfera: sphereEmbedding(1),
   cilindro: cylinderEmbedding(1),
   cone: coneEmbedding(0.6),
   toro: torusEmbedding(2, 0.8),
   moebius: moebiusEmbedding(2),
+  schwarzschild: flammEmbedding(1),
 };
 
 export type EmbeddingId = keyof typeof CATALOGO;

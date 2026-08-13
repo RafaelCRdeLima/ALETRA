@@ -3,6 +3,7 @@ import { christoffelFromMetric } from '../core/christoffel-fd';
 import { degeneracyMask, probeMetric, type MetricProbe } from '../core/degenerate';
 import {
   EXAMPLES,
+  SPHERE_EXAMPLE,
   exampleById,
   exampleToScene,
   sceneToExample,
@@ -48,6 +49,24 @@ import { veilTexture } from '../render/three/veil';
 const DIM = 2;
 const R = 1;
 const DISC_RADIUS = 0.5;
+
+/**
+ * A escala do desenho local, em unidades de mundo.
+ *
+ * Todas as constantes de desenho deste arquivo — raio do disco, espessura das
+ * folhas, grossura das setas e dos tubos, tamanho das alças — foram calibradas
+ * na esfera de raio 1, onde valem em torno de meia unidade. Numa fatia de
+ * Schwarzschild, que tem 24 unidades de ponta a ponta, as mesmas constantes
+ * viram fios de cabelo: a leitura continua correta e some da tela.
+ *
+ * `maxVector` é a âncora certa porque já é um comprimento **métrico** — o do
+ * maior vetor que aquele exemplo deixa desenhar — e num mergulho isométrico
+ * comprimento métrico é comprimento de mundo. Assim o desenho local passa a ter
+ * o tamanho daquilo que ele desenha, em vez de um tamanho fixo que só servia à
+ * primeira superfície do catálogo.
+ */
+const escalaDe = (example: MetricExample): number =>
+  example.maxVector / SPHERE_EXAMPLE.maxVector;
 const MASK_RESOLUTION = 56;
 
 interface Scene {
@@ -112,20 +131,21 @@ const LADO_DO_LACO = 1.7 * DISC_RADIUS;
  * métrica é pequena (o hiperbólico com y grande), o lado métrico pedido cabe
  * na carta inteira e o laço voltaria a engolir tudo.
  */
-function lacoPadrao(
-  metric: MetricFn,
-  bounds: { min: readonly number[]; max: readonly number[] },
-  ponto: readonly number[],
-): Float64Array {
+function lacoPadrao(metric: MetricFn, example: MetricExample): Float64Array {
+  const { bounds, initialPoint: ponto } = example;
   const g = new Float64Array(DIM * DIM);
   metric(Float64Array.from(ponto), g);
+
+  // O lado acompanha a escala do desenho: um laço de 0,85 numa fatia de
+  // Schwarzschild, que tem 24 de ponta a ponta, seria um ponto.
+  const lado = LADO_DO_LACO * escalaDe(example);
 
   const saida = new Float64Array(DIM);
   for (let i = 0; i < DIM; i++) {
     const span = bounds.max[i]! - bounds.min[i]!;
     // √g_ii converte comprimento métrico em passo de carta naquela direção.
     const escala = Math.sqrt(Math.max(g[i * DIM + i]!, 1e-12));
-    const desejado = Math.min(LADO_DO_LACO / escala, 0.32 * span);
+    const desejado = Math.min(lado / escala, 0.32 * span);
     const cabe = bounds.max[i]! - ponto[i]!;
     saida[i] = Math.min(desejado, Math.max(0.05 * span, cabe * 0.85));
   }
@@ -309,7 +329,7 @@ function buildScene(example: MetricExample): Scene {
     u: Float64Array.from(perpendicular(example.initialVector)),
     omega: form(DIM, 1, [...example.initialOmega]),
     eta: form(DIM, 1, perpendicular(example.initialOmega)),
-    laco: lacoPadrao(metric, example.bounds, example.initialPoint),
+    laco: lacoPadrao(metric, example),
     parseError: null,
     probe: null,
   };
@@ -497,6 +517,7 @@ const naSuperficie = {
  */
 function desenharCurvas(d: Cena3D): THREE.Vector3 | null {
   disposeChildren(curvasGroup);
+  const e = escalaDe(scene.example);
 
   const juntar = (o: THREE.Object3D | null): void => {
     if (o) curvasGroup.add(o);
@@ -519,17 +540,17 @@ function desenharCurvas(d: Cena3D): THREE.Vector3 | null {
     somar(d.colchete.caminhoXY);
     somar(d.colchete.caminhoYX);
     juntar(buildCurve(d.colchete.caminhoXY, naSuperficie, {
-      raioDoTubo: 0.012, color: PALETTE.vector,
+      raioDoTubo: 0.012 * e, color: PALETTE.vector,
     }));
     juntar(buildCurve(d.colchete.caminhoYX, naSuperficie, {
-      raioDoTubo: 0.012, color: PALETTE.eta,
+      raioDoTubo: 0.012 * e, color: PALETTE.eta,
     }));
     const fimXY = d.colchete.caminhoXY[d.colchete.caminhoXY.length - 1];
     const fimYX = d.colchete.caminhoYX[d.colchete.caminhoYX.length - 1];
     if (fimXY && fimYX) {
       // O vão desenhado por último e mais grosso: é ele que se lê.
       juntar(buildCurve([fimYX, fimXY], naSuperficie, {
-        raioDoTubo: 0.026, color: PALETTE.brand, emissiveScale: 0.5, levantar: 0.016,
+        raioDoTubo: 0.026 * e, color: PALETTE.brand, emissiveScale: 0.5, levantar: 0.016 * e,
         subdividir: 8,
       }));
     }
@@ -541,14 +562,14 @@ function desenharCurvas(d: Cena3D): THREE.Vector3 | null {
     // grande dá a volta na esfera, e o trecho visível de cada vez é curto — se
     // ele for fino também, some.
     juntar(buildCurve(d.giro.caminho, naSuperficie, {
-      raioDoTubo: 0.017, color: PALETTE.handle, opacity: 0.9,
-      emissiveScale: 0.3, levantar: 0.012, subdividir: 24,
+      raioDoTubo: 0.017 * e, color: PALETTE.handle, opacity: 0.9,
+      emissiveScale: 0.3, levantar: 0.012 * e, subdividir: 24,
     }));
     // O transportado sai do mesmo ponto que o original: é a sobreposição dos
     // dois que mostra o giro.
     curvasGroup.add(
       buildVector(frame, d.giro.transportado, 0, {
-        shaftRadius: 0.017, headLength: 0.085, headRadius: 0.045,
+        shaftRadius: 0.017 * e, headLength: 0.085 * e, headRadius: 0.045 * e,
         colorWhole: PALETTE.brand, colorFraction: PALETTE.brand, showFraction: false,
       }),
     );
@@ -558,11 +579,11 @@ function desenharCurvas(d: Cena3D): THREE.Vector3 | null {
     somar(d.traco.principal.caminho);
     if (d.traco.vizinha) {
       juntar(buildCurve(d.traco.vizinha.caminho, naSuperficie, {
-        raioDoTubo: 0.008, color: PALETTE.fraction, opacity: 0.5,
+        raioDoTubo: 0.008 * e, color: PALETTE.fraction, opacity: 0.5,
       }));
     }
     juntar(buildCurve(d.traco.principal.caminho, naSuperficie, {
-      raioDoTubo: 0.015, color: PALETTE.fraction, emissiveScale: 0.35,
+      raioDoTubo: 0.015 * e, color: PALETTE.fraction, emissiveScale: 0.35,
     }));
   }
 
@@ -640,6 +661,8 @@ function paralelogramoTangente(): THREE.Object3D | null {
 
 function render3D(d: Cena3D): void {
   const { value, active, vBemol, comCelulas, omegaLocal } = d;
+  const e = escalaDe(scene.example);
+  for (const alca of [pointHandle, tipHandle, uHandle]) alca.scale.setScalar(e);
   painelAtivo = active;
   stage.renderer.domElement.style.display = active ? '' : 'none';
   // As leituras de curva ocupam a carta inteira; as locais vivem em volta de p.
@@ -692,9 +715,9 @@ function render3D(d: Cena3D): void {
   disposeChildren(stackGroup);
   stackGroup.add(
     buildStack(form(DIM, 1, Array.from(finitos(omegaLocal.components))), frame, veil, {
-      radius: DISC_RADIUS,
+      radius: DISC_RADIUS * e,
       maxSheets: 14,
-      thickness: 0.13,
+      thickness: 0.13 * e,
       color: PALETTE.brand,
       opacity: opa.omega,
     }),
@@ -707,9 +730,9 @@ function render3D(d: Cena3D): void {
   if (modo === 'duas') {
     bemolGroup.add(
       buildStack(scene.eta, frame, veil, {
-        radius: DISC_RADIUS,
+        radius: DISC_RADIUS * e,
         maxSheets: 14,
-        thickness: 0.13,
+        thickness: 0.13 * e,
         color: PALETTE.eta,
         opacity: 0.9,
       }),
@@ -717,9 +740,9 @@ function render3D(d: Cena3D): void {
   } else if (opa.bemol > 0.01) {
     bemolGroup.add(
       buildStack(form(DIM, 1, Array.from(finitos(vBemol.components))), frame, veil, {
-        radius: DISC_RADIUS,
+        radius: DISC_RADIUS * e,
         maxSheets: 14,
-        thickness: 0.13,
+        thickness: 0.13 * e,
         color: PALETTE.vector,
         opacity: opa.bemol,
       }),
@@ -729,9 +752,9 @@ function render3D(d: Cena3D): void {
   disposeChildren(vectorGroup);
   vectorGroup.add(
     buildVector(frame, scene.v, value, {
-      shaftRadius: 0.016,
-      headLength: 0.08,
-      headRadius: 0.04,
+      shaftRadius: 0.016 * e,
+      headLength: 0.08 * e,
+      headRadius: 0.04 * e,
       colorWhole: PALETTE.vector,
       colorFraction: PALETTE.fraction,
       opacity: opa.seta,
@@ -745,9 +768,9 @@ function render3D(d: Cena3D): void {
   if (comCelulas) {
     vectorGroup.add(
       buildVector(frame, scene.u, 0, {
-        shaftRadius: 0.014,
-        headLength: 0.07,
-        headRadius: 0.036,
+        shaftRadius: 0.014 * e,
+        headLength: 0.07 * e,
+        headRadius: 0.036 * e,
         colorWhole: PALETTE.eta,
         colorFraction: PALETTE.eta,
         showFraction: false,
@@ -904,7 +927,12 @@ function moverSetaDeslizante(): void {
   if (comprimento < 1e-6) return;
 
   setaDeslizante.objeto.visible = true;
-  setaDeslizante.apontar(quadro.point, mundo.clone().divideScalar(comprimento), comprimento);
+  setaDeslizante.apontar(
+    quadro.point,
+    mundo.clone().divideScalar(comprimento),
+    comprimento,
+    escalaDe(scene.example),
+  );
 
   const rotulo = el('fase-transporte');
   rotulo.textContent =

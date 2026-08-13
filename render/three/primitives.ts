@@ -46,7 +46,17 @@ export function cone(
  */
 export interface SetaMovel {
   readonly objeto: THREE.Object3D;
-  apontar(origem: THREE.Vector3, direcao: THREE.Vector3, comprimento: number): void;
+  /**
+   * `espessura` escala a grossura da haste e a cabeça inteira, sem mexer no
+   * comprimento pedido — as constantes de grossura foram calibradas na esfera
+   * de raio 1 e viram fio de cabelo numa superfície de dezenas de unidades.
+   */
+  apontar(
+    origem: THREE.Vector3,
+    direcao: THREE.Vector3,
+    comprimento: number,
+    espessura?: number,
+  ): void;
 }
 
 export function criarSetaMovel(
@@ -75,15 +85,19 @@ export function criarSetaMovel(
 
   return {
     objeto: grupo,
-    apontar(origem, direcao, comprimento) {
+    apontar(origem, direcao, comprimento, espessura = 1) {
       if (comprimento < 1e-6) {
         grupo.visible = false;
         return;
       }
-      const corpo = Math.max(1e-4, comprimento - comprimentoDaCabeca);
+      // A cabeça cresce junto: escalar a ponta e deixar o comprimento dela fixo
+      // daria uma seta com a ponta desproporcional em superfícies grandes.
+      const cabecaL = comprimentoDaCabeca * espessura;
+      const corpo = Math.max(1e-4, comprimento - cabecaL);
       grupo.position.copy(origem);
       grupo.quaternion.setFromUnitVectors(UP, direcao);
-      haste.scale.set(1, corpo, 1);
+      haste.scale.set(espessura, corpo, espessura);
+      cabeca.scale.setScalar(espessura);
       cabeca.position.set(0, corpo, 0);
     },
   };

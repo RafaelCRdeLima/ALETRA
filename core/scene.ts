@@ -89,6 +89,7 @@ const MERGULHOS_CONHECIDOS: readonly string[] = [
   'cone',
   'toro',
   'moebius',
+  'schwarzschild',
 ];
 
 const ehModo = (valor: unknown): valor is ModoCena =>

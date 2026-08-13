@@ -211,14 +211,20 @@ export const SCHWARZSCHILD_EXAMPLE: MetricExample = {
   components: ['1/(1 - 2/r)', '0', 'r^2'],
   bounds: { min: [0.2, -Math.PI], max: [12, Math.PI] },
   initialPoint: [6, 0],
-  initialVector: [2.4, 0.9],
-  initialOmega: [1.2, 2],
-  maxVector: 7,
+  // g_φφ = r² = 36 aqui, então uma componente v^φ pequena já é um vetor
+  // comprido. Com painel 3D o comprimento **métrico** passou a ter consequência
+  // de desenho: era 7, que perto de r=6 é comparável ao funil inteiro, e o
+  // disco tangente atravessava a garganta e saía pela borda. D10 pede um
+  // retalho local, e local aqui é da ordem de 2.
+  initialVector: [1.1, 0.25],
+  initialOmega: [1.2, 3.2],
+  maxVector: 2.4,
   closedCurvature: (x) => -1 / (x[0]! * x[0]! * x[0]!),
-  embedding: null,
+  embedding: 'schwarzschild',
   note:
-    'K = -M/r³. Em r=2 a carta falha mas a geometria está bem (horizonte); ' +
-    'em r=0 a curvatura diverge de verdade.',
+    'K = -M/r³. O funil é esta fatia mergulhada: cada círculo tem raio r, mas ' +
+    'a distância entre dois vizinhos é maior que Δr. Em r=2 o funil acaba e a ' +
+    'carta segue sozinha; em r=0 a curvatura diverge de verdade.',
 };
 
 export const EXAMPLES: readonly MetricExample[] = [

@@ -415,6 +415,7 @@ código de desenho; acrescentar a quinta também não vai custar.
 | Cilindro | $(\varphi,z)$ | $K=0$: entortar no espaço não é ter curvatura |
 | Cone | $(r,\varphi)$ | $K=0$ em toda parte e mesmo assim não é o plano — o déficit angular está todo no vértice |
 | Fita de Möbius | $(u,v)$ | $K<0$ em toda parte, nunca zero — e uma propriedade que **a carta não tem como registrar** |
+| Schwarzschild | $(r,\varphi)$ | O paraboloide de Flamm: o esticamento radial $1/\sqrt{1-2M/r}$ virando forma, e o mergulho **acabando** no horizonte |
 
 **A fita de Möbius é um caso à parte, e por isso vale a pena.** As outras sete
 superfícies são dois desenhos da mesma informação: a carta e o mergulho dizem a
