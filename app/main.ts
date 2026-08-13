@@ -4,6 +4,8 @@ import { degeneracyMask, probeMetric, type MetricProbe } from '../core/degenerat
 import {
   EXAMPLES,
   SPHERE_EXAMPLE,
+  embeddingAgreesWithMetric,
+  embeddingLabel,
   exampleById,
   exampleToScene,
   sceneToExample,
@@ -33,6 +35,7 @@ import { read } from '../core/reading';
 import {
   embeddingById,
   embeddingNormal,
+  insideDomain,
   type Embedding,
 } from '../core/embedding';
 import { createChartPanel } from '../render/svg/chart-panel';
@@ -357,10 +360,25 @@ function recompile(): void {
  * em vez de desenhar uma superfície que não é mais a da conta.
  */
 function embeddingMatches(): boolean {
-  return (
-    mergulhoAtual !== null &&
-    scene.components.every((text, i) => text === scene.example.components[i])
-  );
+  /*
+   * A pergunta é feita ao **catálogo**, e não a `scene.example`. Numa cena vinda
+   * de URL o exemplo é montado a partir da própria cena, então comparar com ele
+   * bate sempre — inclusive depois de a métrica ser editada até virar outra
+   * geometria. Era assim, e o link lavava a inconsistência: o app avisava ao
+   * vivo, o link era copiado, e ao abrir vinha a superfície antiga desenhada
+   * sobre a métrica nova, sem aviso nenhum.
+   */
+  return mergulhoAtual !== null && embeddingAgreesWithMetric(scene.example.embedding, scene.components);
+}
+
+/**
+ * O ponto saiu da parte da carta que o mergulho cobre?
+ *
+ * Só acontece onde superfície e carta não coincidem, que hoje é Schwarzschild: a
+ * carta entra no horizonte de propósito e o paraboloide de Flamm não existe lá.
+ */
+function foraDoMergulho(): boolean {
+  return mergulhoAtual !== null && !insideDomain(mergulhoAtual, scene.x, scene.example.bounds);
 }
 
 // -------------------------------------------------------------- painel 3D
@@ -616,6 +634,12 @@ function enquadrar(centro: THREE.Vector3 | null): void {
   // O sinal da normal é convenção — e na fita de Möbius nem chega a ser global.
   // Fica o lado de onde a câmera já está, senão enquadrar a teleporta para trás
   // da superfície.
+  // O guarda existia antes de a direção passar a vir da normal, e some com ele
+  // a câmera ia parar **dentro** da superfície: `addScaledVector(zero, d)` deixa
+  // a posição igual ao alvo. Acontecia de verdade, com o ponto na garganta de
+  // Schwarzschild, onde a base tangente colapsa.
+  if (direcao.lengthSq() < 1e-9) return;
+
   const atual = stage.camera.position.clone().sub(stage.controls.target);
   if (direcao.dot(atual) < 0) direcao.negate();
 
@@ -690,19 +714,24 @@ function render3D(d: Cena3D): void {
   aviso.hidden = active;
   if (!active) {
     /*
-     * Duas causas diferentes para o painel apagar, e o aluno precisa saber qual.
-     *
-     * Isto testava `embedding === 'sphere'`, de quando a esfera era o único
-     * mergulho e o id dela era em inglês. Com o catálogo, esse id deixou de
-     * existir e o teste virou sempre falso: quem editasse a métrica da esfera
-     * lia que a Esfera "vive só na carta", que é o contrário do que aconteceu.
-     * Perguntar pelo mergulho atual não depende de nome nenhum.
+     * Três causas diferentes para o painel apagar, e o aluno precisa saber qual.
+     * A terceira é nova: o ponto saiu da parte da carta que a superfície cobre,
+     * o que só acontece onde as duas não coincidem. Antes disso o painel
+     * simplesmente ficava mudo — disco, pilha e vetor sumiam e nada explicava.
      */
-    aviso.textContent =
-      mergulhoAtual !== null
-        ? `A métrica já não é a de ${scene.example.label}. A superfície some em vez de ` +
-          'desenhar uma geometria que não corresponde ao que está escrito — o painel de ' +
-          'carta continua correto.'
+    aviso.textContent = foraDoMergulho()
+      ? `O ponto saiu da região que ${scene.example.label} desenha em ℝ³: o mergulho ` +
+        'acaba no horizonte, e nenhuma superfície do espaço continua para dentro dele. ' +
+        'A carta ao lado continua valendo, e é lá que essa região ainda é geometria.'
+      : mergulhoAtual !== null
+        ? // Nomeia a superfície do **catálogo**, não o rótulo da cena. Numa cena
+          // editada os dois coincidem; numa cena escrita à mão, dizer "a métrica
+          // já não é a de <rótulo da própria cena>" se contradiz — a métrica é
+          // dela, quem não bate é o mergulho que ela declara.
+          `A métrica digitada não é a de ${embeddingLabel(scene.example.embedding) ?? 'nenhuma superfície conhecida'}, ` +
+          'que é o mergulho declarado nesta cena. A superfície some em vez de desenhar ' +
+          'uma geometria que não corresponde ao que está escrito — o painel de carta ' +
+          'continua correto.'
         : `${scene.example.label} não tem um mergulho em ℝ³ definido: vive só na carta. ` +
           'O painel ao lado continua sendo a geometria inteira.';
     return;
@@ -1297,7 +1326,7 @@ function update(): void {
   // que passa dele lê-se como uma seta que saiu da superfície.
   clampVectorMetric(scene.v);
   clampVectorMetric(scene.u);
-  const comMergulho = embeddingMatches();
+  const comMergulho = embeddingMatches() && !foraDoMergulho();
   if (comMergulho && mergulhoAtual) frame = frameFor(mergulhoAtual, scene.x);
   document.body.classList.toggle('sem-mergulho', !comMergulho);
 
@@ -1425,7 +1454,17 @@ function update(): void {
   aviso.hidden = scene.probe === null;
   aviso.textContent = scene.probe?.message ?? '';
 
-  el('nota-exemplo').textContent = scene.example.note;
+  /*
+   * A nota é do exemplo do catálogo, e descreve a métrica dele. Editada a
+   * métrica, ela passa a afirmar coisa falsa — uma cena com g = diag(1,1) vinha
+   * dizendo "Curvatura constante K = 1. Os polos são singularidades de
+   * coordenada". Some junto com o mergulho, e pelo mesmo critério; notas de
+   * cenas sem mergulho declarado são de quem escreveu a cena, e ficam.
+   */
+  const notaVale =
+    scene.example.embedding === null ||
+    embeddingAgreesWithMetric(scene.example.embedding, scene.components);
+  el('nota-exemplo').textContent = notaVale ? scene.example.note : '';
 }
 
 // ---------------------------------------------------------------- controles

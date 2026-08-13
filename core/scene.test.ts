@@ -8,7 +8,13 @@
  * por D4, mas a estrutura precisa ser validada com a mesma seriedade.
  */
 import { describe, expect, it } from 'vitest';
-import { EXAMPLES, exampleToScene, sceneToExample, type MetricExample } from './examples';
+import {
+  EXAMPLES,
+  embeddingAgreesWithMetric,
+  exampleToScene,
+  sceneToExample,
+  type MetricExample,
+} from './examples';
 import {
   SceneError,
   sceneFromParam,
@@ -90,6 +96,48 @@ describe('ida e volta', () => {
     for (const id of ['esfera', 'cilindro', 'cone', 'toro', 'moebius']) {
       expect(sceneFromText(JSON.stringify({ ...BASE, mergulho: id })).mergulho).toBe(id);
     }
+  });
+});
+
+describe('o link não pode lavar uma métrica que já não é a do mergulho', () => {
+  /*
+   * O modo de falha que este bloco fecha: editar a métrica da esfera até virar
+   * plana, copiar o link e abri-lo. Ao vivo o app avisava certo e escondia o
+   * painel; ao abrir o link o aviso sumia e a esfera voltava a ser desenhada
+   * sobre g = diag(1,1), com a nota ainda afirmando "curvatura constante K = 1".
+   * Duas geometrias, dois painéis, em silêncio — o pior modo de falha deste
+   * produto, e alcançável por uso comum.
+   *
+   * A causa era a pergunta: comparar a métrica da cena com a do `example` dela
+   * é tautológico depois da ida e volta, porque o example é montado a partir da
+   * cena. Perguntar ao catálogo não é.
+   */
+  it('uma cena intacta concorda com o mergulho que declara', () => {
+    for (const example of EXAMPLES.filter((e) => e.embedding !== null)) {
+      const restaurada = sceneFromParam(sceneToParam(cenaDe(example)));
+      expect(
+        embeddingAgreesWithMetric(restaurada.mergulho, restaurada.metrica),
+        example.label,
+      ).toBe(true);
+    }
+  });
+
+  it('e uma com a métrica editada não concorda, mesmo depois da URL', () => {
+    const editada: SceneDoc = { ...BASE, metrica: ['1', '0', '1'] };
+    const restaurada = sceneFromParam(sceneToParam(editada));
+
+    // O id sobrevive no formato — não é papel do formato julgar...
+    expect(restaurada.mergulho).toBe('esfera');
+    // ...mas a pergunta que o painel faz sabe que já não bate.
+    expect(embeddingAgreesWithMetric(restaurada.mergulho, restaurada.metrica)).toBe(false);
+    // E o mesmo vale pela ponte de exemplo, que é por onde a interface carrega.
+    const exemplo = sceneToExample(restaurada);
+    expect(embeddingAgreesWithMetric(exemplo.embedding, exemplo.components)).toBe(false);
+  });
+
+  it('um mergulho fora do catálogo nunca concorda', () => {
+    expect(embeddingAgreesWithMetric(null, ['1', '0', '1'])).toBe(false);
+    expect(embeddingAgreesWithMetric('garrafa-de-klein', ['1', '0', '1'])).toBe(false);
   });
 });
 

@@ -14,8 +14,9 @@ import {
   embeddingById,
   embeddingNormal,
   inducedMetric,
+  insideDomain,
 } from './embedding';
-import { EXAMPLES, type MetricExample } from './examples';
+import { EXAMPLES, SCHWARZSCHILD_EXAMPLE, type MetricExample } from './examples';
 import { compileMetric } from './metric-expr';
 
 const DIM = 2;
@@ -304,5 +305,37 @@ describe('o funil de Schwarzschild — o que as "esferas concêntricas" dizem', 
     // as duas coisas é o erro clássico de leitura deste desenho.
     expect(distancia(2, 3)).toBeLessThan(4);
     expect(distancia(2, 3)).toBeGreaterThan(2);
+  });
+});
+
+describe('o domínio do mergulho — onde a superfície acaba e a carta continua', () => {
+  const flamm = embeddingById('schwarzschild')!;
+  const limites = SCHWARZSCHILD_EXAMPLE.bounds;
+
+  it('a faixa logo acima da garganta fica de fora', () => {
+    expect(insideDomain(flamm, Float64Array.from([2.02, 0.3]), limites)).toBe(false);
+    expect(insideDomain(flamm, Float64Array.from([6, 0.3]), limites)).toBe(true);
+  });
+
+  it('e é exatamente onde a base tangente colapsaria', () => {
+    /*
+     * A razão de `insideDomain` existir. Em r = 2,02 a métrica é saudável e
+     * `probeMetric` aprova — g_rr = 1/(1−2/r) é positivo para todo r > 2 —, mas
+     * `point` recorta em 2,04, a diferença central vê os dois lados recortados no
+     * mesmo lugar e ∂x/∂r sai zero. Daí somem disco, pilha e vetor, e nos modos
+     * de curva a direção nula ainda levava a câmera para dentro da superfície.
+     */
+    const e = new Float64Array(6);
+    embeddingBasis(flamm, Float64Array.from([2.02, 0.3]), e);
+    expect(Math.hypot(e[0]!, e[1]!, e[2]!)).toBeLessThan(1e-9);
+
+    embeddingBasis(flamm, Float64Array.from([6, 0.3]), e);
+    expect(Math.hypot(e[0]!, e[1]!, e[2]!)).toBeGreaterThan(1);
+  });
+
+  it('as superfícies que cobrem a carta inteira não recortam nada', () => {
+    for (const id of ['esfera', 'toro', 'cilindro', 'cone', 'moebius']) {
+      expect(embeddingById(id)!.domain, id).toBeUndefined();
+    }
   });
 });

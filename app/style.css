@@ -18,7 +18,15 @@ body {
   height: 100%;
   background: var(--bg);
   color: var(--ink);
-  font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /*
+   * A pilha começava com 'Poppins', que nunca foi carregada — sem @font-face,
+   * sem <link>, sem arquivo. Toda a tipografia que alguém já viu é a segunda da
+   * lista. Carregar de verdade custaria uma requisição ao Google Fonts a cada
+   * abertura, que contradiz o "não envia nada para servidor nenhum" que o README
+   * promete; empacotar a fonte custaria peso por nada. Tirar o nome não muda um
+   * pixel e faz o CSS dizer a verdade.
+   */
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   overflow: hidden;
 }
 

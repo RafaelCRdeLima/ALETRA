@@ -113,6 +113,29 @@ export function inducedMetric(
   }
 }
 
+/**
+ * O ponto está onde o mergulho existe?
+ *
+ * Sem isto, um ponto fora do domínio ainda é aceito pela métrica — em
+ * Schwarzschild, r entre 2M e 2,04M tem g positiva-definida e passa por
+ * `probeMetric` sem reclamar — mas o mergulho recorta, a diferença finita vê
+ * derivada nula e a base tangente inteira colapsa a zero. Disco, pilha e vetor
+ * somem sem explicação, e nos modos de curva a direção nula ainda leva a câmera
+ * para dentro da superfície.
+ */
+export function insideDomain(
+  embedding: Embedding,
+  x: Float64Array,
+  bounds: ChartBounds,
+): boolean {
+  const d = embedding.domain?.(bounds);
+  if (!d) return true;
+  for (let i = 0; i < x.length; i++) {
+    if (!(x[i]! >= d.min[i]! && x[i]! <= d.max[i]!)) return false;
+  }
+  return true;
+}
+
 // ------------------------------------------------------------- as superfícies
 
 /** Esfera de raio R, em (θ, φ). */

@@ -238,6 +238,38 @@ export const EXAMPLES: readonly MetricExample[] = [
   SCHWARZSCHILD_EXAMPLE,
 ];
 
+/**
+ * A métrica digitada ainda é a da superfície que este mergulho desenha?
+ *
+ * A pergunta parece a mesma que "os componentes da cena batem com os do
+ * exemplo", e não é. Quando a cena vem de uma URL, `sceneToExample` monta o
+ * exemplo **a partir da própria cena**, então aquela comparação é tautológica:
+ * bate sempre, inclusive quando a métrica foi editada até virar outra coisa. O
+ * resultado era um link que lavava a inconsistência — o app avisava ao vivo que
+ * a métrica já não era a da esfera, o link era copiado, e ao abrir aparecia uma
+ * esfera desenhada sobre uma métrica plana, sem aviso.
+ *
+ * Comparar com o **catálogo** não depende de onde o exemplo veio. É a única
+ * versão da pergunta que sobrevive à ida e volta pela URL.
+ */
+export function embeddingAgreesWithMetric(
+  embedding: string | null,
+  components: readonly string[],
+): boolean {
+  if (embedding === null) return false;
+  const catalogo = EXAMPLES.find((e) => e.embedding === embedding);
+  if (!catalogo) return false;
+  return (
+    catalogo.components.length === components.length &&
+    catalogo.components.every((texto, i) => texto === components[i])
+  );
+}
+
+/** O rótulo da superfície do catálogo que este mergulho desenha. */
+export function embeddingLabel(embedding: string | null): string | null {
+  return EXAMPLES.find((e) => e.embedding === embedding)?.label ?? null;
+}
+
 export function exampleById(id: string): MetricExample {
   return EXAMPLES.find((example) => example.id === id) ?? SPHERE_EXAMPLE;
 }
