@@ -53,7 +53,14 @@ const BLOWUP_RATIO = 50;
  * g ≡ 0 a escala é 0, `scale^k` faz underflow e o teste vira `0 <= 0` — daí o
  * corte absoluto antes do relativo.
  */
-function degeneracyOf(g: Float64Array, dim: number): { degenerate: boolean; det: number } {
+/**
+ * Exportada porque o critério de "aqui a carta não serve" é um só, e mais de um
+ * lugar precisa dele. A leitura de simetria varre a carta atrás do pior defeito
+ * de Killing e tem de pular os mesmos pontos que este arquivo hachura: nos
+ * polos da esfera g_φφ = 0, a inversa explode e o pior defeito saía como 1,6e16
+ * — um número que não é sobre a simetria, é sobre a carta ter acabado.
+ */
+export function degeneracyOf(g: Float64Array, dim: number): { degenerate: boolean; det: number } {
   let scale = 0;
   for (let i = 0; i < g.length; i++) {
     if (!Number.isFinite(g[i]!)) return { degenerate: true, det: Number.NaN };

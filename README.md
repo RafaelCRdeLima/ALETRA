@@ -47,7 +47,7 @@ toda a geometria é calculada na aba aberta, na máquina de quem abriu.
 
 ## Tutorial
 
-O link **tutorial**, no cabeçalho, abre um roteiro de oito atividades pensado
+O link **tutorial**, no cabeçalho, abre um roteiro de nove atividades pensado
 para uma disciplina de Relatividade Geral: cada uma pega uma equação — de
 ⟨ω,v⟩ = ω_i v^i até K = −M/r³ —, abre termo a termo, e termina numa coisa que
 se observa na tela, com o número que deve aparecer.
@@ -74,12 +74,13 @@ explicação prévia — nada na tela compete com a leitura. `?exemplo=toro`,
 
 [Ver o modo limpo →](https://rafaelcrdelima.github.io/ALETRA/?limpo=1)
 
-Todas as seis leituras existem nos **dois painéis**: na carta e, quando a
+Todas as sete leituras existem nos **dois painéis**: na carta e, quando a
 superfície tem mergulho conhecido, desenhadas sobre ela em ℝ³. As seis leituras
 do seletor: contar folhas ⟨ω,v⟩, contar células (ω∧η)(u,v),
 circulação dω(u,v) com d²=0 colapsando na tela, o vão dos fluxos [X,Y],
-holonomia (onde o ângulo **é** a área cercada) e geodésicas com desvio
-geodésico. O caminho está em [PLAN.md](PLAN.md), e
+holonomia (onde o ângulo **é** a área cercada), geodésicas com desvio
+geodésico, e campos de Killing — onde ℒ_ξ g = 0 vira a carga conservada
+⟨ξ,u⟩ que resolve a órbita. O caminho está em [PLAN.md](PLAN.md), e
 o porquê de cada escolha técnica em [DECISIONS.md](DECISIONS.md).
 
 ## Desenvolvimento

@@ -90,6 +90,20 @@ export interface ChartPanelState {
     readonly principal: readonly Float64Array[];
     readonly vizinha: readonly Float64Array[] | null;
   } | null;
+  /**
+   * A leitura de simetria: a órbita do fluxo de ξ e o vetor arrastado até o fim
+   * dela.
+   *
+   * Ao contrário do laço da holonomia, o arrastado é desenhado **no destino** e
+   * não sobreposto à origem: aqui a pergunta não é "quanto girou", é "o
+   * comprimento sobreviveu à viagem", e para comparar comprimentos os dois
+   * precisam estar cada um no seu lugar.
+   */
+  readonly killing: {
+    readonly orbita: readonly Float64Array[];
+    readonly destino: Float64Array;
+    readonly arrastado: Float64Array;
+  } | null;
   readonly point: Float64Array;
   readonly vector: Float64Array;
   /** Máscara quadrada de degeneração (1 = não serve), ou null. */
@@ -219,6 +233,7 @@ export function createChartPanel(callbacks: ChartPanelCallbacks): ChartPanel {
     drawBracket(state);
     drawLoop(state);
     drawGeodesic(state);
+    drawKilling(state);
     drawVector(state);
   }
 
@@ -267,6 +282,23 @@ export function createChartPanel(callbacks: ChartPanelCallbacks): ChartPanel {
    * as pontas coincidem e não sobra segmento nenhum — o quadrilátero fecha, e o
    * fechamento é a informação.
    */
+  function drawKilling(state: ChartPanelState): void {
+    if (!state.killing) return;
+    const { orbita, destino, arrastado } = state.killing;
+
+    if (orbita.length >= 2) {
+      const el = document.createElementNS(NS, 'polyline');
+      el.setAttribute('points', orbita.map((p) => toPixel(state, Array.from(p)).join(',')).join(' '));
+      el.setAttribute('class', 'orbita');
+      layers.vector.appendChild(el);
+    }
+
+    const [dx, dy] = toPixel(state, Array.from(destino));
+    const [ax, ay] = toPixel(state, [destino[0]! + arrastado[0]!, destino[1]! + arrastado[1]!]);
+    layers.vector.appendChild(line(dx, dy, ax, ay, 'vetor-arrastado'));
+    layers.handles.appendChild(circle(dx, dy, 5, 'alca alca-destino'));
+  }
+
   function drawBracket(state: ChartPanelState): void {
     if (!state.bracket) return;
     const { caminhoXY, caminhoYX } = state.bracket;

@@ -116,7 +116,8 @@ body {
 .so-derivada,
 .so-colchete,
 .so-geodesica,
-.so-holonomia {
+.so-holonomia,
+.so-killing {
   display: none;
 }
 
@@ -124,7 +125,8 @@ body.duas-formas .so-duas-formas,
 body.derivada .so-derivada,
 body.colchete .so-colchete,
 body.geodesica .so-geodesica,
-body.holonomia .so-holonomia {
+body.holonomia .so-holonomia,
+body.killing .so-killing {
   display: block;
 }
 
@@ -164,6 +166,28 @@ body.holonomia .so-duas-formas {
 }
 
 /* O quadrilátero: dois caminhos e o vão que sobra entre as pontas. */
+/* A órbita da simetria: a curva que o fluxo de ξ percorre. Tracejada porque não
+   é trajetória de nada — é o caminho ao longo do qual nada muda. */
+.orbita {
+  fill: none;
+  stroke: var(--fraction);
+  stroke-width: 2;
+  stroke-dasharray: 7 5;
+  opacity: 0.85;
+}
+
+.vetor-arrastado {
+  stroke: var(--ink);
+  stroke-width: 2.6;
+  opacity: 0.9;
+}
+
+.alca-destino {
+  fill: var(--fraction);
+  stroke: var(--bg);
+  stroke-width: 1.5;
+}
+
 .caminho-x {
   fill: none;
   stroke: var(--ink);
@@ -619,7 +643,17 @@ text.tick.fim {
 }
 
 .campo input {
-  width: 8.5rem;
+  /*
+   * Encolhível, não fixo. Dois campos numa linha — X, Y, ξ — somam 17rem de
+   * largura fixa dentro de uma coluna de grade que pode ter 10,5rem, e o
+   * segundo transbordava por cima do bloco vizinho. O defeito era latente no
+   * bloco do colchete e só apareceu quando a leitura de simetria caiu numa
+   * coluna estreita. `min-width: 0` é o que permite a um item de flex encolher
+   * abaixo do conteúdo dele.
+   */
+  flex: 1 1 4rem;
+  min-width: 0;
+  max-width: 8.5rem;
   background: var(--panel);
   color: var(--ink);
   border: 1px solid var(--border);

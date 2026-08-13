@@ -39,6 +39,17 @@ export interface MetricExample {
   /** Curvatura gaussiana em forma fechada, quando conhecida (D8). */
   readonly closedCurvature: (x: Float64Array) => number;
   /**
+   * Um campo de Killing desta superfície, para a leitura de simetria abrir num
+   * campo que **é** simetria — o padrão certo depende da métrica, não da carta,
+   * então ele mora aqui e não numa constante global.
+   *
+   * A fita de Möbius é a exceção, e de propósito: g_uu depende das duas
+   * coordenadas e nenhuma direção coordenada é simetria dela. Abrir com defeito
+   * diferente de zero ali é o conteúdo — quase toda superfície de curso tem
+   * simetria, e uma superfície qualquer não tem nenhuma.
+   */
+  readonly killingField: readonly string[];
+  /**
    * Identificador do mergulho em ℝ³, ou nulo para superfícies que só vivem na
    * carta. O catálogo está em `embedding.ts`; a métrica digitada aqui e o
    * mergulho de lá descrevem a mesma superfície, e há teste garantindo isso.
@@ -60,6 +71,7 @@ export const SPHERE_EXAMPLE: MetricExample = {
   initialVector: [0.28, 0.5],
   initialOmega: [6, 2.5],
   maxVector: 0.42,
+  killingField: ['0', '1'],
   closedCurvature: () => 1,
   embedding: 'esfera',
   note: 'Curvatura constante K = 1. Os polos θ=0 e θ=π são singularidades de coordenada.',
@@ -83,6 +95,7 @@ export const EUCLIDEAN_EXAMPLE: MetricExample = {
   initialVector: [1.2, 0.7],
   initialOmega: [1.5, 0.8],
   maxVector: 2.2,
+  killingField: ['-y', 'x'],
   closedCurvature: () => 0,
   embedding: null,
   note:
@@ -108,6 +121,7 @@ export const CYLINDER_EXAMPLE: MetricExample = {
   initialVector: [0.35, 0.4],
   initialOmega: [4, 3],
   maxVector: 0.7,
+  killingField: ['0', '1'],
   closedCurvature: () => 0,
   embedding: 'cilindro',
   note:
@@ -132,6 +146,7 @@ export const CONE_EXAMPLE: MetricExample = {
   initialVector: [0.3, 0.35],
   initialOmega: [4, 3],
   maxVector: 0.6,
+  killingField: ['0', '1'],
   closedCurvature: () => 0,
   embedding: 'cone',
   note:
@@ -157,6 +172,7 @@ export const TORUS_EXAMPLE: MetricExample = {
   initialVector: [0.18, 0.4],
   initialOmega: [5, 3],
   maxVector: 0.6,
+  killingField: ['1', '0'],
   closedCurvature: (x) => Math.cos(x[1]!) / (0.8 * (2 + 0.8 * Math.cos(x[1]!))),
   embedding: 'toro',
   note:
@@ -175,6 +191,7 @@ export const MOEBIUS_EXAMPLE: MetricExample = {
   initialOmega: [5, 3],
   maxVector: 0.8,
   // K = −R²/(4·g_uu²), e com R = 2 o numerador cancela o 4.
+  killingField: ['0', '1'],
   closedCurvature: (x) => {
     const guu = (2 + x[1]! * Math.cos(x[0]! / 2)) ** 2 + x[1]! ** 2 / 4;
     return -1 / (guu * guu);
@@ -198,6 +215,7 @@ export const HYPERBOLIC_EXAMPLE: MetricExample = {
   initialVector: [0.9, 0.55],
   initialOmega: [3, 1.5],
   maxVector: 1.4,
+  killingField: ['1', '0'],
   closedCurvature: () => -1,
   embedding: null,
   note: 'Curvatura constante K = -1. A borda y=0 está infinitamente longe, não é um lugar.',
@@ -219,6 +237,7 @@ export const SCHWARZSCHILD_EXAMPLE: MetricExample = {
   initialVector: [1.1, 0.25],
   initialOmega: [1.2, 3.2],
   maxVector: 2.4,
+  killingField: ['0', '1'],
   closedCurvature: (x) => -1 / (x[0]! * x[0]! * x[0]!),
   embedding: 'schwarzschild',
   note:
@@ -284,7 +303,12 @@ export interface SceneState {
   readonly eta: readonly number[];
   readonly u: readonly number[];
   readonly laco: readonly number[];
-  readonly modo: 'uma' | 'duas' | 'derivada' | 'colchete' | 'holonomia' | 'geodesica';
+  /**
+   * A mesma união de `SceneDoc`, e vem de lá em vez de ser reescrita: esta é a
+   * terceira lista de modos do projeto, e as duas primeiras já divergiram uma
+   * vez quando um modo novo entrou.
+   */
+  readonly modo: SceneDoc['modo'];
   readonly bemol: number;
   /** A métrica como o autor digitou, que pode já ter divergido do exemplo. */
   readonly metrica: readonly string[];
@@ -331,6 +355,10 @@ export function sceneToExample(cena: SceneDoc): MetricExample {
     bounds: { min: [...cena.limites.min], max: [...cena.limites.max] },
     initialPoint: [...cena.ponto],
     initialVector: [...cena.vetor],
+    // A simetria vem dos campos da cena quando ela os traz; sem eles, uma
+    // direção coordenada, que é tão arbitrária quanto qualquer outra numa
+    // métrica que este código não conhece.
+    killingField: cena.campos ? [...cena.campos.xi] : ['0', '1'],
     initialOmega: [...cena.omega],
     maxVector: cena.maxVetor,
     closedCurvature: () => Number.NaN,

@@ -41,8 +41,12 @@ export interface SceneDoc {
    * campo fazia o laço nascer do tamanho de uma seta.
    */
   readonly laco: readonly number[] | null;
-  /** Qual leitura a cena abre mostrando: folhas, células, circulação ou vão. */
-  readonly modo: 'uma' | 'duas' | 'derivada' | 'colchete' | 'holonomia' | 'geodesica';
+  /**
+   * Qual leitura a cena abre mostrando. O tipo sai de `MODOS_CONHECIDOS` em vez
+   * de repetir a união: as duas listas já divergiram uma vez, quando a leitura
+   * de simetria entrou na validação e não aqui.
+   */
+  readonly modo: ModoCena;
   readonly maxVetor: number;
   /** Morfose v ⇄ v♭ da Etapa 3, em [0, 1]. */
   readonly bemol: number;
@@ -63,6 +67,8 @@ export interface SceneDoc {
     readonly usarDf: boolean;
     readonly x: readonly string[];
     readonly y: readonly string[];
+    /** O campo da leitura de simetria. */
+    readonly xi: readonly string[];
     readonly passo: number;
   } | null;
   readonly rotulo: string;
@@ -79,6 +85,7 @@ const MODOS_CONHECIDOS = [
   'colchete',
   'holonomia',
   'geodesica',
+  'killing',
 ] as const;
 type ModoCena = (typeof MODOS_CONHECIDOS)[number];
 
@@ -165,6 +172,10 @@ function lerCampos(bruto: unknown): SceneDoc['campos'] {
     usarDf,
     x: exigirTextos(o['x'], 'cena.campos.x', 2),
     y: exigirTextos(o['y'], 'cena.campos.y', 2),
+    // Endereços gerados antes da leitura de simetria não trazem ξ. Preenchido
+    // como η e u são preenchidos quando faltam: a cena abre, e a interface põe
+    // por cima a simetria que o próprio exemplo declara.
+    xi: o['xi'] === undefined ? ['0', '1'] : exigirTextos(o['xi'], 'cena.campos.xi', 2),
     passo,
   };
 }

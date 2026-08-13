@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ÁLETRA em oito leituras</title>
+    <title>ÁLETRA em nove leituras</title>
     <meta
       name="description"
       content="Oito atividades de geometria diferencial para Relatividade Geral: cada uma abre uma equação e mostra como observá-la no ÁLETRA."
@@ -346,9 +346,9 @@
 
   <header class="capa">
     <span class="selo">Relatividade Geral · roteiro de laboratório</span>
-    <h1>ÁLETRA em oito leituras</h1>
+    <h1>ÁLETRA em nove leituras</h1>
     <p class="subtitulo">
-      Oito atividades para quem já sabe calcular Christoffel e ainda não viu o
+      Nove atividades para quem já sabe calcular Christoffel e ainda não viu o
       que ele faz. Cada uma pega uma equação, abre termo a termo, e termina numa
       coisa que se observa na tela.
     </p>
@@ -1069,6 +1069,117 @@
         garganta é a <strong>inclinação</strong> da parede, não o comprimento
         dela. A distância própria de <var>r</var> = 3<var>M</var> até o
         horizonte é finita. Você chega lá — o que não dá é para ficar parado.
+      </p>
+    </div>
+  </section>
+
+
+  <hr class="pilha" />
+
+  <section>
+    <span class="indice">Atividade 9</span>
+    <h2>A simetria que resolve a órbita</h2>
+
+    <div class="eq">
+      (ℒ<sub>ξ</sub><var>g</var>)<sub>ij</sub> =
+      <var>ξ</var><sup>k</sup>∂<sub>k</sub><var>g</var><sub>ij</sub> +
+      <var>g</var><sub>kj</sub>∂<sub>i</sub><var>ξ</var><sup>k</sup> +
+      <var>g</var><sub>ik</sub>∂<sub>j</sub><var>ξ</var><sup>k</sup> = 0
+      <span class="nome">a condição de Killing</span>
+    </div>
+
+    <p>
+      Arraste tudo ao longo do fluxo de <var>ξ</var>. Se comprimentos e ângulos
+      sobreviverem à viagem, o fluxo é uma <strong>isometria</strong> e
+      <var>ξ</var> é um campo de Killing. A Lie derivada da métrica mede
+      exatamente a taxa com que os comprimentos mudam, então a condição é ela
+      zerar.
+    </p>
+    <p>
+      Os dois últimos termos são o que separa esta conta de "derivar
+      <var>g</var> na direção de <var>ξ</var>": o fluxo não só leva o ponto, ele
+      também roda e estica a base coordenada, e o que a métrica sente é a soma
+      das três coisas.
+    </p>
+    <p>
+      E aqui a geometria vira física, num teorema de uma linha:
+      <strong>se <var>ξ</var> é de Killing, ⟨<var>ξ</var>, <var>u</var>⟩ é
+      constante ao longo de toda geodésica.</strong> Em Schwarzschild,
+      <var>ξ</var> = ∂<sub>φ</sub> dá <var>L</var> =
+      <var>r</var>²·(d<var>φ</var>/d<var>λ</var>), o momento angular; ∂<sub>t</sub>
+      daria a energia. É com esses dois números que se integra uma órbita, e eles
+      não vieram de força nenhuma — vieram de a métrica não depender de
+      <var>φ</var> nem de <var>t</var>.
+    </p>
+
+    <div class="lab">
+      <span class="rotulo">No ÁLETRA</span>
+      <p>
+        <a href="./?exemplo=schwarzschild&amp;modo=killing">Schwarzschild, leitura
+        Killing</a> — abre em <var>ξ</var> = ∂<sub>φ</sub>, com
+        ‖ℒ<sub>ξ</sub><var>g</var>‖ = <span class="num chave">0,00</span>.
+      </p>
+      <ol class="passos">
+        <li>
+          A curva amarela é a <strong>órbita do fluxo</strong> — o círculo de
+          <var>r</var> constante. O vetor aparece nas duas pontas dela, e o bloco
+          mostra <span class="ui">|v| sob o fluxo: 2,02 → 2,02</span>. A viagem
+          não mexeu no comprimento: isso é a isometria, medida.
+        </li>
+        <li>
+          Agora o que importa:
+          <span class="ui">⟨ξ, u⟩ na geodésica: <span class="num chave">9,00 →
+          9,00</span></span>. Confira à mão — <var>g</var><sub>φφ</sub><var>u</var><sup>φ</sup>
+          = <var>r</var>²·<var>u</var><sup>φ</sup> = 36 × 0,25 = 9,00. É o momento
+          angular, e ele fica parado enquanto a geodésica anda.
+        </li>
+        <li>
+          Arraste o ponto. O valor de <var>L</var> muda — outra órbita, outro
+          momento angular — e continua igual nas duas pontas. Conservado não quer
+          dizer fixo: quer dizer que não muda <em>ao longo do movimento</em>.
+        </li>
+        <li>
+          <a href="./?exemplo=esfera&amp;modo=killing">Na esfera</a>, o mesmo
+          ∂<sub>φ</sub> dá sen²θ·(d<var>φ</var>/d<var>λ</var>), que é a relação de
+          Clairaut da navegação. A mesma conta, três séculos antes de
+          Schwarzschild.
+        </li>
+      </ol>
+    </div>
+
+    <h3>O erro que vale cometer de propósito</h3>
+    <p>
+      Na esfera, troque <var>ξ</var> para <span class="ui">(1 ; 0)</span>, que é
+      ∂<sub>θ</sub>. O defeito sobe para <span class="num">0,90</span> e a glosa
+      passa a mostrar <span class="num">7,46</span> no pior ponto da carta.
+      Agora arraste o ponto até o <strong>equador</strong>: o defeito pontual cai
+      para <span class="num chave">0,00</span> — e ∂<sub>θ</sub> continua não
+      sendo simetria da esfera.
+    </p>
+    <p>
+      Não há contradição. O defeito é pontual, e em θ = π/2 mexer em <var>θ</var>
+      não muda sen²θ <em>em primeira ordem</em>. Por isso o painel mostra dois
+      números: um zero sozinho quer dizer "de Killing aqui", e só o par quer
+      dizer "campo de Killing". O bloco confirma pelo outro lado — mesmo com
+      defeito 0,00 no equador, <span class="ui">|v| sob o fluxo: 0,42 → 0,24</span>,
+      porque o fluxo finito sai do equador.
+    </p>
+
+    <div class="lab">
+      <span class="rotulo">Onde não há simetria nenhuma</span>
+      <p>
+        <a href="./?exemplo=moebius&amp;modo=killing">A fita de Möbius</a> abre com
+        defeito <span class="num chave">0,89</span>, porque
+        <var>g</var><sub>uu</sub> depende das duas coordenadas e nenhuma direção
+        coordenada é simetria dela. O comprimento vai de 0,56 a 0,61 sob o fluxo,
+        e a carga escapa de 0,40 para 0,48.
+      </p>
+      <p class="nota">
+        Vale registrar por quê. Quase toda superfície de curso tem simetria —
+        esfera, cilindro, cone, toro, Schwarzschild, todas abrem aqui com zero —,
+        e isso ensina a esperar que sempre haja uma. Uma superfície qualquer não
+        tem nenhuma, e é por isso que problemas de Relatividade Geral que se
+        resolvem no papel são sempre os simétricos.
       </p>
     </div>
   </section>

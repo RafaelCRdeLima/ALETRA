@@ -440,6 +440,34 @@ $K=\cos v/(a(R+a\cos v))$ num varrimento inteiro do tubo.
 
 ---
 
+## Depois da Etapa 9 — campos de Killing
+
+**Estado:** construído. Era o elo que faltava entre a geometria que o programa ensina e a física que
+o curso precisa: um aluno saía sabendo o que é curvatura e sem saber como alguém *resolve* uma
+órbita.
+
+**A condição:** $\mathcal{L}_\xi g = 0$, com
+$(\mathcal{L}_\xi g)_{ij} = \xi^k\partial_k g_{ij} + g_{kj}\partial_i\xi^k + g_{ik}\partial_j\xi^k$.
+Os dois últimos termos separam esta conta de "derivar $g$ na direção de $\xi$": o fluxo não só leva
+o ponto, ele roda e estica a base coordenada.
+
+**A consequência, que é o conteúdo:** se $\xi$ é de Killing, $\langle\xi, u\rangle$ é constante ao
+longo de toda geodésica. Em Schwarzschild isso é $L = r^2\,\dot\varphi$, e o painel mostra
+$9{,}00 \to 9{,}00$ — o momento angular, parado enquanto a geodésica anda.
+
+**Dois cuidados que o desenho teve de carregar.** O defeito é **pontual**: $\partial_\theta$ na
+esfera tem defeito $2|\cot\theta|$, que zera no equador sem que $\partial_\theta$ seja simetria.
+Por isso o painel mostra dois números — o do ponto e o pior da carta —, e só o par responde "é um
+campo de Killing". E a varredura da carta pula onde a métrica degenera, pelo mesmo critério de D7:
+nos polos $g_{\varphi\varphi} = 0$, a inversa explode e o pior defeito saía $1{,}6\times10^{16}$.
+
+**Sete das oito superfícies abrem numa simetria genuína.** A fita de Möbius não tem nenhuma —
+$g_{uu}$ depende das duas coordenadas — e abre com defeito $0{,}89$. Não é falha do catálogo: quase
+toda superfície de curso é simétrica, e é por isso que os problemas de Relatividade Geral que se
+resolvem no papel são sempre os simétricos.
+
+---
+
 ## Riscos
 
 | Risco | Sinal antecipado |

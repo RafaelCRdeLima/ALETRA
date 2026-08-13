@@ -43,6 +43,7 @@ const cenaDe = (example: MetricExample): SceneDoc =>
       usarDf: false,
       x: ['1', '0'],
       y: ['0', '1 + x'],
+      xi: ['0', '1'],
       passo: 1.2,
     },
   });
@@ -208,7 +209,7 @@ describe('recusa de entrada malformada', () => {
   });
 
   it('aceita todos os modos conhecidos', () => {
-    for (const modo of ['uma', 'duas', 'derivada', 'colchete'] as const) {
+    for (const modo of ['uma', 'duas', 'derivada', 'colchete', 'holonomia', 'geodesica', 'killing'] as const) {
       expect(sceneFromText(JSON.stringify({ ...BASE, modo })).modo).toBe(modo);
     }
   });
@@ -251,7 +252,16 @@ describe('os campos digitados das Etapas 6 e 7', () => {
     expect(() => sceneFromText(comCampos({ passo: -1 }))).toThrow(/passo: tem de ser positivo/);
     expect(() => sceneFromText(comCampos({ usarDf: 'sim' }))).toThrow(/verdadeiro ou falso/);
     expect(() => sceneFromText(comCampos({ x: ['1'] }))).toThrow(/campos\.x: esperava 2/);
+    expect(() => sceneFromText(comCampos({ xi: ['1'] }))).toThrow(/campos\.xi: esperava 2/);
     expect(() => sceneFromText(comCampos({ f: 'z'.repeat(500) }))).toThrow(/longo demais/);
+  });
+});
+
+describe('compatibilidade com endereços gerados antes da leitura de simetria', () => {
+  it('uma cena sem ξ abre, com um padrão no lugar', () => {
+    const { xi: _x, ...semXi } = BASE.campos!;
+    const cena = sceneFromText(JSON.stringify({ ...BASE, campos: semXi }));
+    expect(cena.campos?.xi).toEqual(['0', '1']);
   });
 });
 

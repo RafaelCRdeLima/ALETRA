@@ -27,6 +27,7 @@
         <option value="colchete">[X, Y] — o vão dos fluxos</option>
         <option value="holonomia">holonomia — o vetor volta rodado</option>
         <option value="geodesica">geodésica — a linha mais reta</option>
+        <option value="killing">Killing — a simetria que conserva</option>
       </select>
       <button id="copiar" type="button">copiar link</button>
       <a id="tutorial" href="./tutorial.html">tutorial</a>
@@ -117,6 +118,21 @@
           <span>traçar a vizinha (desvio geodésico)</span>
         </label>
         <p class="derivado" id="parada-geodesica"></p>
+      </div>
+
+      <div class="bloco so-killing">
+        <span class="bloco-titulo">Campo ξ</span>
+        <div class="campo">
+          <span>ξ =</span>
+          <input id="campo-xi-0" type="text" spellcheck="false" value="0" />
+          <input id="campo-xi-1" type="text" spellcheck="false" value="1" />
+        </div>
+        <label class="morfose">
+          <span>passo t</span>
+          <input id="tempo-killing" type="range" min="0.1" max="2" step="0.01" value="1.2" />
+        </label>
+        <p class="derivado" id="killing-comprimento"></p>
+        <p class="derivado" id="killing-carga"></p>
       </div>
 
       <div class="bloco so-colchete">

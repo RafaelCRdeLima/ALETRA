@@ -16,7 +16,7 @@ import { evaluate, form, type Form } from '../core/forms';
 import { flatForm } from '../core/musical';
 import { cellEdges, cellEdgesFromDensity, wedge } from '../core/wedge';
 import { differential0, differential1, type FormField } from '../core/exterior';
-import { flowPath } from '../core/flow';
+import { flow, flowPath } from '../core/flow';
 import { lieBracket } from '../core/lie';
 import {
   enclosedArea,
@@ -38,6 +38,13 @@ import {
   insideDomain,
   type Embedding,
 } from '../core/embedding';
+import {
+  flowJacobian,
+  killingCharge,
+  killingDefect,
+  pushForward,
+  worstKillingDefect,
+} from '../core/killing';
 import { createChartPanel } from '../render/svg/chart-panel';
 import { frameFor, fromWorld, toWorld, type TangentFrame } from '../render/three/frame';
 import { criarSetaMovel, disposeChildren } from '../render/three/primitives';
@@ -52,6 +59,18 @@ import { veilTexture } from '../render/three/veil';
 const DIM = 2;
 const R = 1;
 const DISC_RADIUS = 0.5;
+
+/**
+ * Abaixo disto o defeito de Killing conta como zero.
+ *
+ * O corte existe porque ℒ_ξ g sai de diferenças finitas: um campo exatamente de
+ * Killing dá 1e-11, não 0, e um painel que exigisse zero exato nunca diria
+ * "é simetria" para simetria nenhuma. A folga é larga o bastante para o ruído
+ * numérico e estreita o bastante para nenhum campo do catálogo passar por ela
+ * sem ser simetria — o menor defeito verdadeiro entre os exemplos é da ordem
+ * de 0,1.
+ */
+const TOLERANCIA_KILLING = 1e-6;
 
 /**
  * A escala do desenho local, em unidades de mundo.
@@ -198,8 +217,16 @@ let bemol = 0;
  * número corresponde a qual desenho, que é exatamente o trabalho que este
  * produto existe para poupar.
  */
-type Modo = 'uma' | 'duas' | 'derivada' | 'colchete' | 'holonomia' | 'geodesica';
-const MODOS: readonly Modo[] = ['uma', 'duas', 'derivada', 'colchete', 'holonomia', 'geodesica'];
+type Modo = 'uma' | 'duas' | 'derivada' | 'colchete' | 'holonomia' | 'geodesica' | 'killing';
+const MODOS: readonly Modo[] = [
+  'uma',
+  'duas',
+  'derivada',
+  'colchete',
+  'holonomia',
+  'geodesica',
+  'killing',
+];
 const paramModo = params.get('modo');
 let modo: Modo = MODOS.includes(paramModo as Modo) ? (paramModo as Modo) : 'uma';
 
@@ -221,6 +248,8 @@ let erroCampo: string | null = null;
 
 /** Os dois campos vetoriais da Etapa 7, e o tempo de cada trecho de fluxo. */
 const campoX = ['1', '0'];
+/** O campo da leitura de simetria; o padrão vem do exemplo, não daqui. */
+const campoXi = ['0', '1'];
 const campoY = ['0', 'x'];
 /**
  * Passo de fluxo generoso por padrão.
@@ -514,6 +543,7 @@ interface Cena3D {
   readonly colchete: Colchete | null;
   readonly giro: Giro | null;
   readonly traco: Traco | null;
+  readonly killing: Killing | null;
 }
 
 /**
@@ -591,6 +621,38 @@ function desenharCurvas(d: Cena3D): THREE.Vector3 | null {
         colorWhole: PALETTE.brand, colorFraction: PALETTE.brand, showFraction: false,
       }),
     );
+  }
+
+  if (d.killing) {
+    somar(d.killing.orbita);
+    // A órbita é a curva ao longo da qual a geometria não muda. Tracejar em 3D
+    // custaria material próprio; aqui a distinção vem da cor e da espessura, e
+    // do fato de o vetor aparecer nas duas pontas dela.
+    juntar(
+      buildCurve(d.killing.orbita, naSuperficie, {
+        raioDoTubo: 0.014 * e,
+        color: PALETTE.fraction,
+        opacity: 0.85,
+        emissiveScale: 0.3,
+        levantar: 0.012 * e,
+        subdividir: 12,
+      }),
+    );
+    // O arrastado sai do destino, não da origem: a comparação aqui é de
+    // comprimento entre dois lugares, e não de ângulo no mesmo lugar.
+    if (mergulhoAtual) {
+      const quadro = frameFor(mergulhoAtual, d.killing.destino);
+      curvasGroup.add(
+        buildVector(quadro, d.killing.arrastado, 0, {
+          shaftRadius: 0.016 * e,
+          headLength: 0.08 * e,
+          headRadius: 0.04 * e,
+          colorWhole: PALETTE.vector,
+          colorFraction: PALETTE.vector,
+          showFraction: false,
+        }),
+      );
+    }
   }
 
   if (d.traco) {
@@ -1035,6 +1097,7 @@ function paintNumeral(
   colchete: Colchete | null,
   giro: Giro | null,
   traco: Traco | null,
+  killing: Killing | null,
 ): void {
   const reading = read(value);
   el('numeral-value').textContent = Number.isFinite(value) ? ptBR(reading.value) : '—';
@@ -1067,6 +1130,33 @@ function paintNumeral(
     }
     const parada = el('parada-geodesica');
     parada.textContent = traco ? (PARADA[traco.principal.motivo] ?? '') : '';
+    return;
+  }
+
+  if (modo === 'killing') {
+    /*
+     * O defeito é pontual, e o painel não pode deixar isso implícito: ∂_θ na
+     * esfera zera no equador sem ser simetria da esfera. A glosa põe ao lado o
+     * pior defeito da carta inteira, que é a diferença entre "de Killing aqui"
+     * e "campo de Killing" — e quando os dois são zero, ela diz isso com todas
+     * as letras, porque é a resposta que o aluno foi buscar.
+     */
+    const alvo = el('numeral-gloss');
+    if (!killing) {
+      alvo.replaceChildren('—');
+      return;
+    }
+    if (killing.pior < TOLERANCIA_KILLING) {
+      const forte = document.createElement('span');
+      forte.className = 'frac';
+      forte.textContent = 'é simetria da carta inteira';
+      alvo.replaceChildren(forte);
+      return;
+    }
+    const forte = document.createElement('span');
+    forte.className = 'frac';
+    forte.textContent = ptBR(killing.pior);
+    alvo.replaceChildren('no pior ponto da carta = ', forte);
     return;
   }
 
@@ -1293,6 +1383,80 @@ interface Colchete {
  * o que separa "o quadrilátero abriu" de "o quadrilátero abriu **pelo colchete**":
  * sem a comparação, um erro de integração pareceria geometria.
  */
+interface Killing {
+  /** ‖ℒ_ξ g‖ no ponto: zero quer dizer "de Killing **aqui**". */
+  readonly defeito: number;
+  /** O pior defeito na carta inteira: zero quer dizer "campo de Killing". */
+  readonly pior: number;
+  /** A órbita do fluxo de ξ pelo ponto — a curva que a simetria percorre. */
+  readonly orbita: Float64Array[];
+  readonly destino: Float64Array;
+  /** v arrastado até o destino pelo jacobiano do fluxo. */
+  readonly arrastado: Float64Array;
+  readonly comprimentoAntes: number;
+  readonly comprimentoDepois: number;
+  /** ⟨ξ, u⟩ nas duas pontas de uma geodésica que sai de (p, v). */
+  readonly cargaInicial: number;
+  readonly cargaFinal: number;
+}
+
+/**
+ * A leitura de simetria.
+ *
+ * Três coisas ao mesmo tempo, e são três porque o aluno precisa ver a condição,
+ * o efeito e a consequência: ‖ℒ_ξ g‖ é a condição; o vetor arrastado pelo fluxo
+ * com o mesmo comprimento é o efeito; ⟨ξ, u⟩ parado ao longo da geodésica é a
+ * consequência, e é ela que resolve órbita.
+ */
+function calcularKilling(): Killing | null {
+  try {
+    erroCampo = null;
+    const xi = compileFormField(scene.example.chart, campoXi);
+    const PASSOS = 40;
+    const t = tempoFluxo;
+
+    const orbita = flowPath(xi, scene.x, t, PASSOS, DIM);
+    const destino = flow(xi, scene.x, t, PASSOS, DIM);
+
+    const J = new Float64Array(DIM * DIM);
+    flowJacobian(xi, scene.x, t, PASSOS, DIM, J);
+    const arrastado = new Float64Array(DIM);
+    pushForward(J, scene.v, DIM, arrastado);
+
+    const g = new Float64Array(DIM * DIM);
+    scene.metric(scene.x, g);
+    const comprimentoAntes = Math.sqrt(Math.max(0, normSquared(g, scene.v, DIM)));
+    scene.metric(destino, g);
+    const comprimentoDepois = Math.sqrt(Math.max(0, normSquared(g, arrastado, DIM)));
+
+    // A carga nas duas pontas de uma geodésica que parte de (p, v): se ξ for de
+    // Killing os dois números são o mesmo, e é esse par que vira E e L.
+    const geo = traceGeodesic(scene.metric, scene.christoffel, scene.x, scene.v, DIM, {
+      // Mesmo alcance da leitura de geodésica: a carga é conservada ao longo
+      // de qualquer trecho, e usar a mesma régua deixa as duas comparáveis.
+      passos: 220,
+      dLambda: alcance / 220,
+      limites: scene.example.bounds,
+    });
+    const ultimo = geo.caminho.length - 1;
+
+    return {
+      defeito: killingDefect(scene.metric, xi, scene.x, DIM),
+      pior: worstKillingDefect(scene.metric, xi, scene.example.bounds, DIM),
+      orbita,
+      destino,
+      arrastado,
+      comprimentoAntes,
+      comprimentoDepois,
+      cargaInicial: killingCharge(scene.metric, xi, geo.caminho[0]!, geo.velocidades[0]!, DIM),
+      cargaFinal: killingCharge(scene.metric, xi, geo.caminho[ultimo]!, geo.velocidades[ultimo]!, DIM),
+    };
+  } catch (error) {
+    erroCampo = error instanceof Error ? error.message : 'não consegui ler o campo';
+    return null;
+  }
+}
+
 function calcularColchete(): Colchete | null {
   try {
     erroCampo = null;
@@ -1322,6 +1486,24 @@ function calcularColchete(): Colchete | null {
   }
 }
 
+/**
+ * As duas consequências que o número sozinho não mostra.
+ *
+ * A primeira é o efeito: leve v pelo fluxo e compare o comprimento nas duas
+ * pontas. A segunda é a razão de isto importar em Relatividade Geral: ⟨ξ, u⟩ nas
+ * duas pontas de uma geodésica. Se ξ for de Killing os dois pares são iguais, e
+ * o segundo é a energia ou o momento angular com que se resolve uma órbita.
+ */
+function pintarDerivadosDeKilling(killing: Killing | null): void {
+  const par = (a: number, b: number): string => `${ptBR(a)} → ${ptBR(b)}`;
+  el('killing-comprimento').textContent = killing
+    ? `|v| sob o fluxo: ${par(killing.comprimentoAntes, killing.comprimentoDepois)}`
+    : '';
+  el('killing-carga').textContent = killing
+    ? `⟨ξ, u⟩ na geodésica: ${par(killing.cargaInicial, killing.cargaFinal)}`
+    : '';
+}
+
 // ------------------------------------------------------------------- update
 
 function update(): void {
@@ -1342,6 +1524,7 @@ function update(): void {
   const colchete = modo === 'colchete' ? calcularColchete() : null;
   const giro = modo === 'holonomia' ? calcularGiro() : null;
   const traco = modo === 'geodesica' ? tracarGeodesica() : null;
+  const killing = modo === 'killing' ? calcularKilling() : null;
   const comCelulas = duasFormas || derivada;
 
   // No modo derivada ω é o campo digitado (ou df dele), avaliado em p para a
@@ -1356,7 +1539,9 @@ function update(): void {
 
   const sigma = duasFormas ? wedge(scene.omega, scene.eta) : dOmega;
   const value =
-    modo === 'geodesica'
+    modo === 'killing'
+      ? (killing?.defeito ?? Number.NaN)
+      : modo === 'geodesica'
       ? (traco?.principal.comprimento ?? 0)
       : modo === 'holonomia'
       ? (giro?.angulo ?? 0)
@@ -1423,6 +1608,9 @@ function update(): void {
       geodesic: traco
         ? { principal: traco.principal.caminho, vizinha: traco.vizinha?.caminho ?? null }
         : null,
+      killing: killing
+        ? { orbita: killing.orbita, destino: killing.destino, arrastado: killing.arrastado }
+        : null,
       bracket: colchete
         ? { caminhoXY: colchete.caminhoXY, caminhoYX: colchete.caminhoYX }
         : null,
@@ -1443,11 +1631,13 @@ function update(): void {
     comCelulas,
     omegaLocal,
     colchete,
+    killing,
     giro,
     traco,
   });
   amostrasDoGiro = giro?.amostras ?? null;
-  paintNumeral(value, colchete, giro, traco);
+  paintNumeral(value, colchete, giro, traco, killing);
+  pintarDerivadosDeKilling(killing);
   paintBemol(vBemol);
   syncVectorFields();
   syncUFields();
@@ -1528,6 +1718,7 @@ function cenaAtual(): SceneDoc {
       usarDf,
       x: [...campoX],
       y: [...campoY],
+      xi: [...campoXi],
       passo: tempoFluxo,
     },
   });
@@ -1723,6 +1914,7 @@ const ROTULO_NUMERAL: Readonly<Record<Modo, string>> = {
   derivada: 'dω(u, v)',
   colchete: '|vão|',
   holonomia: 'ângulo (rad)',
+  killing: '‖ℒ\u2091 g‖',
 };
 
 /**
@@ -1745,6 +1937,7 @@ function aplicarModo(): void {
   document.body.classList.toggle('colchete', modo === 'colchete');
   document.body.classList.toggle('holonomia', modo === 'holonomia');
   document.body.classList.toggle('geodesica', modo === 'geodesica');
+  document.body.classList.toggle('killing', modo === 'killing');
   el<HTMLSelectElement>('modo').value = modo;
   el('numeral-label').textContent = ROTULO_NUMERAL[modo];
 }
@@ -1780,6 +1973,7 @@ function bindModo(): void {
   for (const [prefixo, destino] of [
     ['campo-x', campoX],
     ['campo-y', campoY],
+    ['campo-xi', campoXi],
   ] as const) {
     for (let i = 0; i < DIM; i++) {
       const input = el<HTMLInputElement>(`${prefixo}-${i}`);
@@ -1788,6 +1982,18 @@ function bindModo(): void {
         update();
       });
     }
+  }
+
+  // Dois controles para o mesmo valor: o passo do fluxo vale para o colchete e
+  // para a simetria, e os dois blocos nunca aparecem juntos. Um só slider
+  // moraria num bloco escondido metade do tempo.
+  for (const id of ['tempo-fluxo', 'tempo-killing']) {
+    const input = el<HTMLInputElement>(id);
+    input.addEventListener('input', () => {
+      tempoFluxo = Number(input.value);
+      sincronizarPasso();
+      update();
+    });
   }
 
   const animar = el<HTMLInputElement>('animar-transporte');
@@ -1815,11 +2021,6 @@ function bindModo(): void {
     update();
   });
 
-  const tempo = el<HTMLInputElement>('tempo-fluxo');
-  tempo.addEventListener('input', () => {
-    tempoFluxo = Number(tempo.value);
-    update();
-  });
 }
 
 /**
@@ -1849,6 +2050,10 @@ function resetCampos(): void {
   campoX[1] = campos.x[1];
   campoY[0] = campos.y[0];
   campoY[1] = campos.y[1];
+  // A simetria vem do exemplo: qual direção coordenada é de Killing depende da
+  // métrica, e o padrão certo na esfera é o errado no toro.
+  campoXi[0] = scene.example.killingField[0]!;
+  campoXi[1] = scene.example.killingField[1]!;
   tempoFluxo = passoPadrao(scene.example.bounds);
 }
 
@@ -1858,6 +2063,8 @@ function aplicarCampos(campos: NonNullable<SceneDoc['campos']>): void {
   campoOmega[1] = campos.omega[1]!;
   funcaoF = campos.f;
   usarDf = campos.usarDf;
+  campoXi[0] = campos.xi[0]!;
+  campoXi[1] = campos.xi[1]!;
   campoX[0] = campos.x[0]!;
   campoX[1] = campos.x[1]!;
   campoY[0] = campos.y[0]!;
@@ -1865,8 +2072,15 @@ function aplicarCampos(campos: NonNullable<SceneDoc['campos']>): void {
   tempoFluxo = campos.passo;
 }
 
+/** Mantém os dois sliders de passo dizendo o mesmo. */
+function sincronizarPasso(): void {
+  for (const id of ['tempo-fluxo', 'tempo-killing']) {
+    el<HTMLInputElement>(id).value = String(tempoFluxo);
+  }
+}
+
 function syncCampoLabels(): void {
-  el<HTMLInputElement>('tempo-fluxo').value = String(tempoFluxo);
+  sincronizarPasso();
   el<HTMLInputElement>('usar-df').checked = usarDf;
 
   for (let i = 0; i < DIM; i++) {
@@ -1874,6 +2088,7 @@ function syncCampoLabels(): void {
     el<HTMLInputElement>(`campo-omega-${i}`).value = campoOmega[i]!;
     el<HTMLInputElement>(`campo-x-${i}`).value = campoX[i]!;
     el<HTMLInputElement>(`campo-y-${i}`).value = campoY[i]!;
+    el<HTMLInputElement>(`campo-xi-${i}`).value = campoXi[i]!;
   }
   el<HTMLInputElement>('campo-f').value = funcaoF;
 }
