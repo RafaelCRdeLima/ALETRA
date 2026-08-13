@@ -86,21 +86,46 @@ interface Scene {
  */
 const perpendicular = (c: ArrayLike<number>): number[] => [-c[1]!, c[0]!];
 
+/** O lado do laço padrão, em comprimento métrico. Ver `lacoPadrao`. */
+const LADO_DO_LACO = 1.7 * DISC_RADIUS;
+
 /**
- * Um laço grande o bastante para o giro se ver.
+ * Um laço grande o bastante para o giro se ver, e pequeno o bastante para ser
+ * um laço.
  *
  * A holonomia é ∫∫K dA: num laço pequeno o ângulo é pequeno, e "o vetor volta
- * rodado" vira "o vetor volta". A diagonal é uma fração generosa da carta,
- * recortada para não passar dos limites a partir do ponto atual.
+ * rodado" vira "o vetor volta". Isto era uma fração generosa do span da carta,
+ * o que funcionava enquanto a única superfície mergulhada era a esfera.
+ *
+ * Fração de carta não é tamanho. Num toro a carta vai de −π a π nas duas
+ * direções, e 32% dela é um laço que **dá quase a volta na rosquinha**: some a
+ * vizinhança, o quadrilátero deixa de se ler como quadrilátero, e o K troca de
+ * sinal por dentro do laço, de modo que as contribuições se cancelam e o número
+ * fica pequeno pelo motivo errado. Na fita de Möbius era pior ainda.
+ *
+ * O tamanho certo é métrico, não de carta: o lado tem comprimento fixo medido
+ * com g, então o laço tem o mesmo tamanho *físico* em toda superfície. A âncora
+ * é `DISC_RADIUS`, que é o tamanho da vizinhança que este painel já desenha —
+ * o laço é aquele pedaço de superfície, não um pedaço do retângulo.
+ *
+ * Continua havendo um teto em fração de carta, para o caso oposto: onde a
+ * métrica é pequena (o hiperbólico com y grande), o lado métrico pedido cabe
+ * na carta inteira e o laço voltaria a engolir tudo.
  */
 function lacoPadrao(
+  metric: MetricFn,
   bounds: { min: readonly number[]; max: readonly number[] },
   ponto: readonly number[],
 ): Float64Array {
+  const g = new Float64Array(DIM * DIM);
+  metric(Float64Array.from(ponto), g);
+
   const saida = new Float64Array(DIM);
   for (let i = 0; i < DIM; i++) {
     const span = bounds.max[i]! - bounds.min[i]!;
-    const desejado = 0.32 * span;
+    // √g_ii converte comprimento métrico em passo de carta naquela direção.
+    const escala = Math.sqrt(Math.max(g[i * DIM + i]!, 1e-12));
+    const desejado = Math.min(LADO_DO_LACO / escala, 0.32 * span);
     const cabe = bounds.max[i]! - ponto[i]!;
     saida[i] = Math.min(desejado, Math.max(0.05 * span, cabe * 0.85));
   }
@@ -284,7 +309,7 @@ function buildScene(example: MetricExample): Scene {
     u: Float64Array.from(perpendicular(example.initialVector)),
     omega: form(DIM, 1, [...example.initialOmega]),
     eta: form(DIM, 1, perpendicular(example.initialOmega)),
-    laco: lacoPadrao(example.bounds, example.initialPoint),
+    laco: lacoPadrao(metric, example.bounds, example.initialPoint),
     parseError: null,
     probe: null,
   };
@@ -307,9 +332,9 @@ function recompile(): void {
 }
 
 /**
- * O mergulho em ℝ³ é o da esfera unitária, em forma fechada. Se o aluno editar a
- * métrica, ele deixa de corresponder ao que está escrito — e o painel precisa
- * dizer isso em vez de desenhar uma superfície que não é mais a da conta.
+ * A superfície em ℝ³ vem do mergulho do exemplo. Se o aluno editar a métrica,
+ * ela deixa de corresponder ao que está escrito — e o painel precisa dizer isso
+ * em vez de desenhar uma superfície que não é mais a da conta.
  */
 function embeddingMatches(): boolean {
   return (
@@ -556,14 +581,26 @@ function desenharCurvas(d: Cena3D): THREE.Vector3 | null {
  */
 function enquadrar(centro: THREE.Vector3 | null): void {
   if (!centro) return;
-  const direcao = centro.clone().sub(centroDaSuperficie);
-  if (direcao.lengthSq() < 1e-9) return;
+
+  /*
+   * A direção era do centro da superfície até o centro da curva. Numa esfera as
+   * duas coisas coincidem — a direção radial *é* a normal — e o atalho passava.
+   * Numa fita o centro da curva fica quase no mesmo plano do centro da
+   * superfície, então a câmera ia parar de lado e o laço aparecia de perfil,
+   * sobre uma superfície vista de fio. A normal no ponto é o que "de frente"
+   * quer dizer, em qualquer superfície.
+   */
+  const direcao = frame.normal.clone();
+
+  // O sinal da normal é convenção — e na fita de Möbius nem chega a ser global.
+  // Fica o lado de onde a câmera já está, senão enquadrar a teleporta para trás
+  // da superfície.
+  const atual = stage.camera.position.clone().sub(stage.controls.target);
+  if (direcao.dot(atual) < 0) direcao.negate();
 
   const distancia = stage.camera.position.distanceTo(stage.controls.target);
   stage.controls.target.copy(centroDaSuperficie);
-  stage.camera.position
-    .copy(centroDaSuperficie)
-    .addScaledVector(direcao.normalize(), distancia);
+  stage.camera.position.copy(centroDaSuperficie).addScaledVector(direcao, distancia);
   stage.controls.update();
 }
 
@@ -629,12 +666,22 @@ function render3D(d: Cena3D): void {
   const aviso = el<HTMLParagraphElement>('sem-mergulho');
   aviso.hidden = active;
   if (!active) {
+    /*
+     * Duas causas diferentes para o painel apagar, e o aluno precisa saber qual.
+     *
+     * Isto testava `embedding === 'sphere'`, de quando a esfera era o único
+     * mergulho e o id dela era em inglês. Com o catálogo, esse id deixou de
+     * existir e o teste virou sempre falso: quem editasse a métrica da esfera
+     * lia que a Esfera "vive só na carta", que é o contrário do que aconteceu.
+     * Perguntar pelo mergulho atual não depende de nome nenhum.
+     */
     aviso.textContent =
-      scene.example.embedding === 'sphere'
-        ? 'A métrica foi editada: o mergulho desenhado aqui é o da esfera original e já não ' +
-          'corresponde ao que está escrito. O painel de carta continua correto.'
-        : `Esta métrica não tem um mergulho em ℝ³ definido neste estágio — ${scene.example.label} ` +
-          'vive só na carta. O painel ao lado continua sendo a geometria inteira.';
+      mergulhoAtual !== null
+        ? `A métrica já não é a de ${scene.example.label}. A superfície some em vez de ` +
+          'desenhar uma geometria que não corresponde ao que está escrito — o painel de ' +
+          'carta continua correto.'
+        : `${scene.example.label} não tem um mergulho em ℝ³ definido: vive só na carta. ` +
+          'O painel ao lado continua sendo a geometria inteira.';
     return;
   }
 

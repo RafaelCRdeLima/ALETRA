@@ -12,11 +12,15 @@
 import { describe, expect, it } from 'vitest';
 import { christoffelFromMetric } from './christoffel-fd';
 import {
+  CONE_EXAMPLE,
+  CYLINDER_EXAMPLE,
   EUCLIDEAN_EXAMPLE,
   HYPERBOLIC_EXAMPLE,
   SPHERE_EXAMPLE,
+  TORUS_EXAMPLE,
   type MetricExample,
 } from './examples';
+import { gaussianCurvature } from './curvature';
 import { compileMetric } from './metric-expr';
 import {
   enclosedArea,
@@ -25,7 +29,7 @@ import {
   sampleTransport,
   transportAlongSegment,
 } from './transport';
-import { normSquared } from './metric';
+import { christoffelIndex, normSquared } from './metric';
 import { sphereChristoffel } from './sphere';
 
 const DIM = 2;
@@ -73,6 +77,109 @@ describe('Gauss-Bonnet na esfera — holonomia = área cercada', () => {
     const porFD = holonomy(metric, christoffel, laco, V, DIM, 60).angulo;
     const porFechada = holonomy(metric, sphereChristoffel(), laco, V, DIM, 60).angulo;
     expect(porFD).toBeCloseTo(porFechada, 5);
+  });
+});
+
+/**
+ * ∫∫ K dA sobre o retângulo da carta, por soma de Riemann no ponto médio.
+ *
+ * O teste da esfera compara holonomia com **área** porque lá K = 1 e as duas
+ * coisas coincidem. Num toro K varia dentro do próprio laço — muda de sinal, até
+ * — e comparar com a área não diria nada. Gauss-Bonnet de verdade é contra a
+ * integral da curvatura, e é essa a versão que este arquivo passa a checar.
+ */
+const integralDeK = (
+  metric: ReturnType<typeof compileMetric>,
+  christoffel: ReturnType<typeof christoffelFromMetric>,
+  canto: Float64Array,
+  oposto: Float64Array,
+  n = 48,
+): number => {
+  const g = new Float64Array(DIM * DIM);
+  const x = new Float64Array(DIM);
+  const du = (oposto[0]! - canto[0]!) / n;
+  const dv = (oposto[1]! - canto[1]!) / n;
+  let soma = 0;
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      x[0] = canto[0]! + (i + 0.5) * du;
+      x[1] = canto[1]! + (j + 0.5) * dv;
+      metric(x, g);
+      const det = g[0]! * g[3]! - g[1]! * g[2]!;
+      soma += gaussianCurvature(metric, christoffel, x) * Math.sqrt(Math.abs(det));
+    }
+  }
+  return soma * du * dv;
+};
+
+const giroEm = (e: MetricExample, canto: Float64Array, oposto: Float64Array): number => {
+  const { metric, christoffel } = motor(e);
+  return holonomy(
+    metric,
+    christoffel,
+    rectangleLoop(canto, oposto),
+    Float64Array.from([1, 0]),
+    DIM,
+    60,
+  ).angulo;
+};
+
+describe('curvo no espaço, plano por dentro — o vetor volta idêntico', () => {
+  /*
+   * O controle euclidiano abaixo é fraco: lá *todos* os Christoffel são nulos,
+   * então o transporte não tem como errar. No cilindro e no cone a métrica não é
+   * trivial — o cone tem Γ^r_φφ = −0,36·r e Γ^φ_rφ = 1/r, ambos não nulos —, e o
+   * vetor genuinamente gira ao percorrer cada lado. O que tem de dar zero é a
+   * soma ao redor do laço fechado. É o par de superfícies que separa "entortar
+   * no espaço" de "ter curvatura", e o transporte é quem decide.
+   */
+  it('o cilindro fecha em zero', () => {
+    const giro = giroEm(
+      CYLINDER_EXAMPLE,
+      Float64Array.from([-0.5, -0.5]),
+      Float64Array.from([0.6, 0.8]),
+    );
+    expect(Math.abs(giro)).toBeLessThan(1e-6);
+  });
+
+  it('o cone também, com Christoffel não nulos ao longo do caminho', () => {
+    const { christoffel } = motor(CONE_EXAMPLE);
+    const G = new Float64Array(DIM * DIM * DIM);
+    christoffel(Float64Array.from([1.2, 0.1]), G);
+    // Γ^r_φφ = −0,36·r. Se fosse zero, o teste do giro não estaria testando nada.
+    expect(Math.abs(G[christoffelIndex(DIM, 0, 1, 1)]!)).toBeGreaterThan(0.1);
+
+    const giro = giroEm(CONE_EXAMPLE, Float64Array.from([0.8, -0.3]), Float64Array.from([1.6, 0.5]));
+    expect(Math.abs(giro)).toBeLessThan(1e-5);
+  });
+});
+
+describe('o toro — Gauss-Bonnet com K variável dentro do laço', () => {
+  const { metric, christoffel } = motor(TORUS_EXAMPLE);
+  // Por fora do tubo (v ≈ 0) K > 0; por dentro (v ≈ π) K < 0.
+  const foraCanto = Float64Array.from([0.2, -0.35]);
+  const foraOposto = Float64Array.from([0.9, 0.35]);
+  const dentroCanto = Float64Array.from([0.2, 2.6]);
+  const dentroOposto = Float64Array.from([0.9, 3.1]);
+
+  it('o giro é a integral da curvatura, e não a área', () => {
+    for (const [canto, oposto] of [
+      [foraCanto, foraOposto],
+      [dentroCanto, dentroOposto],
+    ] as const) {
+      const giro = giroEm(TORUS_EXAMPLE, canto, oposto);
+      expect(Math.abs(giro)).toBeCloseTo(Math.abs(integralDeK(metric, christoffel, canto, oposto)), 2);
+    }
+  });
+
+  it('e troca de sinal entre a parte de fora e a de dentro', () => {
+    // A promessa da nota do exemplo: arraste o ponto pelo tubo e veja o sinal
+    // virar. Com a mesma orientação de laço, os dois giros têm de ser opostos.
+    const fora = giroEm(TORUS_EXAMPLE, foraCanto, foraOposto);
+    const dentro = giroEm(TORUS_EXAMPLE, dentroCanto, dentroOposto);
+    expect(Math.abs(fora)).toBeGreaterThan(0.05);
+    expect(Math.abs(dentro)).toBeGreaterThan(0.05);
+    expect(Math.sign(fora)).toBe(-Math.sign(dentro));
   });
 });
 
