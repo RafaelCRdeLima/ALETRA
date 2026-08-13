@@ -1,13 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 260" width="700" height="260" role="img" aria-label="ÁLETRA">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 260" width="900" height="260" role="img" aria-label="ÁLETRA — Atlas, Lie, Exterior e Transporte de Tangentes em Renderização Animada">
   <!--
-    Variante para fundo escuro, derivada de aletra-alfa-lockup.svg: só as cores
-    da tipografia mudam (a marca continua no laranja da marca), e a linha de
-    legenda sai. A 340px de largura, que é como o cartão da página de
-    Relatividade a desenha, aqueles 20px de corpo virariam 7px na tela.
-
-    Sem a legenda, o nome desce para o centro óptico da marca — no lockup
-    original a base do texto fica em y=130 porque as duas linhas embaixo
-    equilibravam o conjunto.
+    Variante para fundo escuro, derivada de aletra-alfa-lockup.svg. A geometria
+    é a mesma; só mudam as cores da tipografia, que no original são #1B1E23 e
+    #5A6169 e sumiriam num cartão escuro. A marca continua no laranja da marca.
   -->
   <g transform="translate(14,2)" stroke="#E4380D" fill="none" stroke-linecap="round" stroke-linejoin="round">
     <path d="M28,224 L128,34 L228,224" stroke-width="21"/>
@@ -16,6 +11,11 @@
     <path d="M46.6,200 L209.4,200" stroke-width="9"/>
   </g>
 
-  <text x="296" y="160" font-family="Poppins, Futura, 'Century Gothic', 'Trebuchet MS', sans-serif"
+  <text x="296" y="130" font-family="Poppins, Futura, 'Century Gothic', 'Trebuchet MS', sans-serif"
         font-size="84" font-weight="500" letter-spacing="9" fill="#FFFFFF">ÁLETRA</text>
+
+  <text x="300" y="177" font-family="Poppins, Futura, 'Century Gothic', 'Trebuchet MS', sans-serif"
+        font-size="20" font-weight="400" letter-spacing="1.1" fill="rgba(255,255,255,0.72)">Atlas, Lie, Exterior e Transporte de Tangentes</text>
+  <text x="300" y="205" font-family="Poppins, Futura, 'Century Gothic', 'Trebuchet MS', sans-serif"
+        font-size="20" font-weight="400" letter-spacing="1.1" fill="rgba(255,255,255,0.72)">em Renderização Animada</text>
 </svg>
