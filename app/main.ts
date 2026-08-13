@@ -1044,7 +1044,14 @@ function paintNumeral(
   // "abriu pelo colchete" — sem ela, erro de integração passaria por geometria.
   // A holonomia é um ângulo, e a glosa põe ao lado a área cercada — que é o
   // mesmo número quando K = 1. É a leitura de Gauss-Bonnet acontecendo na tela:
-  // o ângulo não *parece* a área, ele **é** a área.
+  // na esfera o ângulo não *parece* a área, ele **é** a área.
+  //
+  // A glosa dizia "área cercada = X rad de curvatura", o que assumia K = 1 em
+  // toda superfície. No cilindro isso saía como "1,81 rad de curvatura" ao lado
+  // de um ângulo 0,00 — falso, e falso exatamente onde a lição mora: o laço
+  // cerca área, e mesmo assim o vetor volta idêntico, porque o que conta é
+  // ∫∫K dA e não a área. O rótulo agora só nomeia o que mede, e a comparação
+  // entre os dois números faz o trabalho sozinha.
   // A geodésica não conta nada: mede comprimento. A glosa mostra a separação da
   // vizinha, que é a curvatura vista como efeito — encolhe onde K>0, cresce onde
   // K<0. E o aviso de parada, quando há, é conteúdo (D7).
@@ -1068,7 +1075,7 @@ function paintNumeral(
     const forte = document.createElement('span');
     forte.className = 'frac';
     forte.textContent = giro ? ptBR(giro.area) : '—';
-    alvo.replaceChildren('área cercada = ', forte, ' rad de curvatura');
+    alvo.replaceChildren('área cercada = ', forte);
     return;
   }
 
