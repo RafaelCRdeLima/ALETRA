@@ -1,0 +1,1113 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ÁLETRA em oito leituras</title>
+    <meta
+      name="description"
+      content="Oito atividades de geometria diferencial para Relatividade Geral: cada uma abre uma equação e mostra como observá-la no ÁLETRA."
+    />
+    <link rel="icon" href="./assets/aletra-icone.svg" />
+  </head>
+  <body>
+<style>
+  /* ---------------------------------------------------------------- tokens
+     A paleta vem do próprio ÁLETRA: o aluno passa do tutorial para a
+     ferramenta e de volta, e a continuidade de cor poupa uma troca de mundo a
+     cada ida. Laranja é a pilha de one-form; azul é o plano tangente; âmbar é
+     a fração que sobra na contagem. Cada cor já significa algo lá dentro. */
+  :root {
+    color-scheme: light dark;
+
+    --papel: #f7f3ee;
+    --papel-2: #efe9e1;
+    --tinta: #1c1613;
+    --tinta-2: #5c5049;
+    --tinta-3: #8a7c72;
+    --regua: #ddd2c6;
+
+    --marca: #c22f0b;
+    --marca-fraca: #f4ded6;
+    --ambar: #a8700a;
+    --ambar-fraco: #f7ecd4;
+    --azul: #2f6d86;
+    --azul-fraco: #dfeaef;
+
+    --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino,
+      "Book Antiqua", Georgia, serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+      "Liberation Mono", monospace;
+
+    --col: 34rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --papel: #14100f;
+      --papel-2: #1f1a18;
+      --tinta: #f4efe9;
+      --tinta-2: #b9ada4;
+      --tinta-3: #857a72;
+      --regua: #332c28;
+
+      --marca: #f2582c;
+      --marca-fraca: #35180f;
+      --ambar: #ffc24b;
+      --ambar-fraco: #2e2413;
+      --azul: #8fb8c8;
+      --azul-fraco: #16262c;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --papel: #14100f;
+    --papel-2: #1f1a18;
+    --tinta: #f4efe9;
+    --tinta-2: #b9ada4;
+    --tinta-3: #857a72;
+    --regua: #332c28;
+
+    --marca: #f2582c;
+    --marca-fraca: #35180f;
+    --ambar: #ffc24b;
+    --ambar-fraco: #2e2413;
+    --azul: #8fb8c8;
+    --azul-fraco: #16262c;
+  }
+
+  /* ----------------------------------------------------------------- base */
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--papel);
+    color: var(--tinta);
+    font-family: var(--serif);
+    font-size: 1.0625rem;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .folha {
+    max-width: var(--col);
+    margin: 0 auto;
+    padding: 4.5rem 1.5rem 7rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3.25rem;
+  }
+
+  p { margin: 0; }
+
+  a {
+    color: var(--marca);
+    text-decoration-color: color-mix(in srgb, var(--marca) 35%, transparent);
+    text-underline-offset: 0.18em;
+    transition: text-decoration-color 0.15s ease;
+  }
+  a:hover { text-decoration-color: var(--marca); }
+  a:focus-visible {
+    outline: 2px solid var(--azul);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  em { font-style: italic; }
+  strong { font-weight: 600; }
+
+  /* -------------------------------------------------------------- cabeçalho */
+  .capa { display: flex; flex-direction: column; gap: 1.1rem; }
+
+  .selo {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--tinta-3);
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(2.1rem, 6vw, 3rem);
+    font-weight: 500;
+    line-height: 1.08;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+
+  .subtitulo {
+    font-size: 1.2rem;
+    line-height: 1.5;
+    color: var(--tinta-2);
+    text-wrap: pretty;
+  }
+
+  /* A pilha: o motivo central do ÁLETRA — folhas paralelas que se contam.
+     Serve de divisor entre atividades, e é a única figura decorativa aqui. */
+  .pilha {
+    height: 11px;
+    border: 0;
+    margin: 0;
+    background: repeating-linear-gradient(
+      to bottom,
+      var(--marca) 0 1.5px,
+      transparent 1.5px 5.5px
+    );
+    opacity: 0.5;
+  }
+
+  /* --------------------------------------------------------------- seções */
+  section { display: flex; flex-direction: column; gap: 1.15rem; }
+
+  h2 {
+    margin: 0;
+    font-size: 1.55rem;
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  .indice {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--marca);
+    margin-bottom: 0.4rem;
+  }
+
+  h3 {
+    margin: 0.7rem 0 0;
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--tinta-3);
+  }
+
+  /* ------------------------------------------------------------- equações */
+  .eq {
+    margin: 0.3rem 0;
+    padding: 1.15rem 0 1.15rem 1.35rem;
+    border-left: 2px solid var(--marca);
+    font-size: 1.3rem;
+    line-height: 1.5;
+    overflow-x: auto;
+  }
+  .eq .nome {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--tinta-3);
+    margin-top: 0.55rem;
+  }
+
+  var, .v { font-style: italic; font-family: var(--serif); }
+
+  /* Glossário de símbolos: o que cada letra da equação está fazendo ali. */
+  .termos {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.5rem 1.1rem;
+    margin: 0;
+    padding: 0;
+    font-size: 0.97rem;
+  }
+  .termos dt {
+    font-size: 1.05rem;
+    color: var(--marca);
+    white-space: nowrap;
+  }
+  .termos dd { margin: 0; color: var(--tinta-2); }
+
+  /* ------------------------------------------------------- bloco de prática */
+  .lab {
+    background: var(--azul-fraco);
+    border-left: 2px solid var(--azul);
+    padding: 1.3rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.95rem;
+  }
+  .lab .rotulo {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--azul);
+  }
+  .lab a { color: var(--azul); text-decoration-color: color-mix(in srgb, var(--azul) 40%, transparent); }
+  .lab a:hover { text-decoration-color: var(--azul); }
+
+  .passos { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: 0.6rem; }
+  .passos li { padding-left: 0.25rem; }
+  .passos li::marker { color: var(--azul); font-family: var(--mono); font-size: 0.85em; }
+
+  ul.simples { margin: 0; padding-left: 1.15rem; display: flex; flex-direction: column; gap: 0.55rem; }
+  ul.simples li::marker { color: var(--tinta-3); }
+
+  code, .ui {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--papel-2);
+    padding: 0.1em 0.38em;
+    border-radius: 3px;
+  }
+  .lab code, .lab .ui { background: color-mix(in srgb, var(--azul) 13%, transparent); }
+
+  /* --------------------------------------------------------------- tabelas */
+  .rolagem { overflow-x: auto; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.92rem;
+    font-variant-numeric: tabular-nums;
+  }
+  caption {
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--tinta-3);
+    padding-bottom: 0.6rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.5rem 0.85rem 0.5rem 0;
+    border-bottom: 1px solid var(--regua);
+    vertical-align: top;
+  }
+  th {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--tinta-3);
+  }
+  td:last-child, th:last-child { padding-right: 0; }
+  .num { font-family: var(--mono); color: var(--ambar); white-space: nowrap; }
+
+  /* Destaque para o número que carrega a lição da atividade. */
+  .chave {
+    background: var(--ambar-fraco);
+    padding: 0.08em 0.4em;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+
+  .nota {
+    font-size: 0.94rem;
+    color: var(--tinta-2);
+    border-top: 1px solid var(--regua);
+    padding-top: 0.9rem;
+  }
+
+  .fecho {
+    border-top: 2px solid var(--regua);
+    padding-top: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+  }
+
+
+  .volta {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    margin-bottom: -1.5rem;
+  }
+  .volta a { color: var(--tinta-3); text-decoration-color: transparent; }
+  .volta a:hover { color: var(--marca); text-decoration-color: var(--marca); }
+
+  @media (max-width: 480px) {
+    .folha { padding: 3rem 1.15rem 4.5rem; gap: 2.5rem; }
+    .eq { font-size: 1.12rem; }
+    .termos { grid-template-columns: 1fr; gap: 0.15rem 0; }
+    .termos dd { margin-bottom: 0.55rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<div class="folha">
+
+
+  <p class="volta"><a href="./">← voltar ao ÁLETRA</a></p>
+
+  <header class="capa">
+    <span class="selo">Relatividade Geral · roteiro de laboratório</span>
+    <h1>ÁLETRA em oito leituras</h1>
+    <p class="subtitulo">
+      Oito atividades para quem já sabe calcular Christoffel e ainda não viu o
+      que ele faz. Cada uma pega uma equação, abre termo a termo, e termina numa
+      coisa que se observa na tela.
+    </p>
+  </header>
+
+  <section>
+    <h2>Antes de começar</h2>
+    <p>
+      O <a href="./">ÁLETRA</a> abre no
+      navegador, não instala nada e não manda nada para servidor nenhum. A tela
+      tem três partes, e a mais importante é a menor.
+    </p>
+    <ul class="simples">
+      <li>
+        <strong>À esquerda, a carta.</strong> O retângulo de coordenadas. Ele
+        mente sobre comprimentos e ângulos — é para isso que existe uma métrica.
+      </li>
+      <li>
+        <strong>À direita, o mergulho em ℝ³.</strong> A mesma superfície onde
+        distâncias são o que parecem. Seis das oito superfícies têm um; duas
+        vivem só na carta.
+      </li>
+      <li>
+        <strong>No alto à direita, o número.</strong> Este é o ponto do
+        programa. Os dois desenhos discordam entre si o tempo todo; o número
+        é o mesmo nos dois. É a definição operacional de <em>invariante</em>.
+      </li>
+    </ul>
+    <p>
+      O seletor da esquerda troca a superfície, o da direita troca a
+      <strong>leitura</strong> — qual objeto geométrico está sendo medido. Os
+      campos embaixo são editáveis: a métrica é digitada, não escolhida num
+      menu.
+    </p>
+    <p class="nota">
+      Os links deste roteiro já abrem na superfície e na leitura certas. Ao lado
+      de cada um há o número que deve aparecer: se bater, você está no lugar
+      certo. Arraste o ponto branco para mover-se pela superfície e a ponta do
+      vetor para mudá-lo — nos dois painéis, indiferentemente.
+    </p>
+  </section>
+
+  <hr class="pilha" />
+
+  <section>
+    <span class="indice">Atividade 1</span>
+    <h2>O número que não precisa de métrica</h2>
+
+    <div class="eq">
+      ⟨<var>ω</var>, <var>v</var>⟩ = <var>ω</var><sub>i</sub>
+      <var>v</var><sup>i</sup>
+      <span class="nome">a contração de um covetor com um vetor</span>
+    </div>
+
+    <dl class="termos">
+      <dt><var>v</var><sup>i</sup></dt>
+      <dd>Um vetor tangente: direção e comprimento, mora em T<sub>p</sub><em>M</em>.</dd>
+      <dt><var>ω</var><sub>i</sub></dt>
+      <dd>
+        Não é uma seta. É uma máquina linear que come uma seta e devolve um
+        número — mora em T*<sub>p</sub><em>M</em>, o espaço dual.
+      </dd>
+    </dl>
+
+    <p>
+      A figura certa para <var>ω</var> não é uma flecha: é uma
+      <strong>família de folhas paralelas</strong>, os conjuntos de nível da
+      função linear. E ⟨<var>ω</var>, <var>v</var>⟩ conta quantas folhas a seta
+      atravessa. Um <var>ω</var> "maior" tem folhas mais juntas, não uma flecha
+      mais longa.
+    </p>
+    <p>
+      Repare no que <em>não</em> apareceu na equação: nenhum
+      <var>g</var><sub>ij</sub>. A contração está definida antes de existir
+      métrica. É o objeto mais primitivo da teoria, e é por isso que o gradiente
+      d<var>f</var> é naturalmente um covetor, que a fase de uma onda plana é
+      <var>k</var><sub>μ</sub><var>x</var><sup>μ</sup>, e que o momento com
+      índice embaixo é o que aparece na integral de ação.
+    </p>
+    <p>
+      Em ℝ³ com a métrica euclidiana os números de
+      <var>ω</var><sub>i</sub> e de <var>v</var><sup>i</sup> coincidem, e por
+      isso a distinção nunca morde na graduação. Ela morde aqui.
+    </p>
+
+    <div class="lab">
+      <span class="rotulo">No ÁLETRA</span>
+      <p>
+        <a href="./?exemplo=esfera&amp;modo=uma">Abrir
+        na esfera, leitura ⟨ω, v⟩</a> — deve mostrar
+        <span class="num chave">2,30</span>, glosado como "2 folhas + 0,30".
+      </p>
+      <ol class="passos">
+        <li>
+          Confira à mão: <span class="ui">ω = (6,00 ; 2,50)</span> e
+          <span class="ui">v = (0,22 ; 0,39)</span>, logo
+          6·0,22 + 2,5·0,39 = 2,30. O número na tela é essa soma, e nada mais.
+        </li>
+        <li>
+          Arraste a ponta do vetor. A contagem muda continuamente, e a fração
+          que sobra fica destacada no pedaço final da seta.
+        </li>
+        <li>
+          Agora mexa só no slider <span class="ui">ω<sub>θ</sub></span>, sem
+          tocar em <var>v</var>. As folhas adensam e o número sobe. O vetor não
+          mudou: quem mudou foi o covetor. São objetos diferentes.
+        </li>
+        <li>
+          <strong>O experimento que fixa a ideia.</strong> Vá para o
+          <a href="./?exemplo=euclidiano&amp;modo=uma">plano
+          euclidiano</a>, onde ω = (1,50 ; 0,80), e digite
+          <span class="ui">v = (-0,80 ; 1,50)</span> — um vetor ao longo das
+          folhas. O número vai a <span class="num chave">0,00</span> com
+          <var>v</var> ≠ 0 e <var>ω</var> ≠ 0.
+        </li>
+      </ol>
+      <p class="nota">
+        Esse zero é o núcleo de <var>ω</var>. Num espaço de dimensão 2 ele é uma
+        reta inteira, não um ponto — um covetor não nulo aniquila toda uma
+        direção. É a razão de "perpendicular" e "no núcleo de" serem coisas
+        diferentes até você escolher uma métrica.
+      </p>
+    </div>
+  </section>
+
+  <hr class="pilha" />
+
+  <section>
+    <span class="indice">Atividade 2</span>
+    <h2>Baixar índice é usar a métrica, sempre</h2>
+
+    <div class="eq">
+      <var>v</var><sub>i</sub> = <var>g</var><sub>ij</sub>
+      <var>v</var><sup>j</sup>
+      <span class="nome">o isomorfismo musical ♭</span>
+    </div>
+
+    <p>
+      T<sub>p</sub><em>M</em> e T*<sub>p</sub><em>M</em> têm a mesma dimensão,
+      logo são isomorfos — mas não <strong>canonicamente</strong>. Não existe
+      maneira de transformar um vetor num covetor sem escolher uma estrutura
+      extra. A métrica é essa escolha, e é a única.
+    </p>
+    <p>
+      Toda vez que você sobe ou desce um índice em Relatividade Geral, você
+      está usando <var>g</var>. É por isso que
+      <var>u</var><sup>μ</sup><var>u</var><sub>μ</sub> = −1 é uma afirmação
+      sobre a métrica e não sobre o vetor, e por isso que a mesma conta em
+      Minkowski troca um sinal e em Schwarzschild multiplica por
+      1/(1 − 2<var>M</var>/<var>r</var>).
+    </p>
+
+    <div class="lab">
+      <span class="rotulo">No ÁLETRA</span>
+      <p>
+        Abaixo dos campos do vetor há um valor derivado,
+        <span class="ui">v♭ = (… ; …)</span>, e o slider
+        <span class="ui">v ⇄ v♭</span> transforma a seta em pilha
+        continuamente. Compare as três métricas:
+      </p>
+      <div class="rolagem">
+        <table>
+          <caption>o mesmo controle, três métricas</caption>
+          <thead>
+            <tr><th>superfície</th><th>v</th><th>v♭</th><th>o que aconteceu</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href="./?exemplo=euclidiano&amp;modo=uma">euclidiano</a></td>
+              <td class="num">(1,20 ; 0,70)</td>
+              <td class="num">(1,20 ; 0,70)</td>
+              <td><var>g</var> = δ: nada. Daí a confusão inteira.</td>
+            </tr>
+            <tr>
+              <td><a href="./?exemplo=esfera&amp;modo=uma">esfera</a></td>
+              <td class="num">(0,22 ; 0,39)</td>
+              <td class="num">(0,22 ; 0,33)</td>
+              <td>só a 2ª componente muda: <var>g</var><sub>φφ</sub> = sen²θ.</td>
+            </tr>
+            <tr>
+              <td><a href="./?exemplo=schwarzschild&amp;modo=uma">Schwarzschild</a></td>
+              <td class="num">(1,10 ; 0,25)</td>
+              <td class="num chave">(1,65 ; 9,00)</td>
+              <td><var>g</var><sub>φφ</sub> = <var>r</var>² = 36 em <var>r</var> = 6.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ol class="passos">
+        <li>
+          Em Schwarzschild, a componente φ foi multiplicada por 36. "As
+          componentes de <var>v</var>" não é uma pergunta bem posta enquanto
+          você não disser em que posição está o índice.
+        </li>
+        <li>
+          Confira a norma: |<var>v</var>|² =
+          <var>v</var><sub>i</sub><var>v</var><sup>i</sup> =
+          1,65·1,10 + 9,00·0,25 = <span class="num">4,065</span>. A tela mostra
+          <span class="num">4,06</span> ao lado.
+        </li>
+        <li>
+          Puxe o slider <span class="ui">v ⇄ v♭</span> devagar em cada
+          superfície. No plano a seta e a pilha ficam com a mesma cara; na
+          esfera e em Schwarzschild, não.
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <hr class="pilha" />
+
+  <section>
+    <span class="indice">Atividade 3</span>
+    <h2>Área orientada, e por que <var>F</var><sub>μν</sub> é antissimétrico</h2>
+
+    <div class="eq">
+      (<var>ω</var> ∧ <var>η</var>)(<var>u</var>, <var>v</var>) =
+      <var>ω</var>(<var>u</var>)<var>η</var>(<var>v</var>) −
+      <var>ω</var>(<var>v</var>)<var>η</var>(<var>u</var>)
+      <span class="nome">o produto exterior de duas 1-formas</span>
+    </div>
+
+    <p>
+      Uma 2-forma come <strong>dois</strong> vetores e devolve um número, de
+      modo antissimétrico. A figura: <var>ω</var> dá uma família de folhas,
+      <var>η</var> dá outra, e cruzadas elas fazem um ladrilho de células. O
+      número é a contagem de células que o paralelogramo (<var>u</var>,
+      <var>v</var>) cerca.
+    </p>
+    <p>
+      Da antissimetria saem duas coisas de graça. Trocar <var>u</var> por
+      <var>v</var> troca o sinal — o que está sendo medido é
+      <strong>área orientada</strong>. E alimentar o mesmo vetor duas vezes dá
+      zero, porque um paralelogramo degenerado não cerca nada.
+    </p>
+    <p>
+      É a mesma estrutura de <var>F</var> = d<var>A</var>: dizer que
+      <var>F</var><sub>μν</sub> é antissimétrico e dizer que <var>F</var> é uma
+      2-forma são a mesma frase, mas o segundo nome já avisa o que o objeto
+      quer — ser integrado sobre uma superfície. O elemento de volume
+      √(−<var>g</var>) d⁴<var>x</var> é a mesma ideia em grau 4.
+    </p>
+
+    <div class="lab">
+      <span class="rotulo">No ÁLETRA</span>
+      <p>
+        <a href="./?exemplo=euclidiano&amp;modo=duas">Plano
+        euclidiano, leitura (ω∧η)(u, v)</a> —
+        <span class="num chave">−5,58</span>. Aparecem um segundo vetor
+        <var>u</var> e uma segunda pilha <var>η</var>, em azul.
+      </p>
+      <ol class="passos">
+        <li>
+          Olhe o ladrilho: as duas famílias de folhas se cruzam e as células são
+          as áreas entre elas. O número conta as que o paralelogramo cerca.
+        </li>
+        <li>
+          Troque os valores de <var>u</var> e <var>v</var> entre si. O desenho é
+          o mesmo ladrilho, e o <strong>sinal vira</strong>. Orientação não é
+          enfeite de notação.
+        </li>
+        <li>
+          Ponha <var>u</var> paralelo a <var>v</var> (dobre as componentes de
+          <var>v</var>). A contagem cai para perto de zero: sem paralelogramo,
+          sem área.
+        </li>
+        <li>
+          Repita na <a href="./?exemplo=esfera&amp;modo=duas">esfera</a>
+          (<span class="num">−8,14</span>). O ladrilho agora vive no plano
+          tangente e acompanha o ponto pela superfície.
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <hr class="pilha" />
+
+  <section>
+    <span class="indice">Atividade 4</span>
+    <h2>d² = 0, e metade das equações de Maxwell</h2>
+
+    <div class="eq">
+      (d<var>ω</var>)<sub>ij</sub> = ∂<sub>i</sub><var>ω</var><sub>j</sub> −
+      ∂<sub>j</sub><var>ω</var><sub>i</sub>
+      <span class="nome">a derivada exterior de uma 1-forma</span>
+    </div>
+
+    <p>
+      d leva uma <var>k</var>-forma numa (<var>k</var>+1)-forma, e de novo:
+      nenhuma métrica, nenhuma conexão. O significado de
+      d<var>ω</var>(<var>u</var>, <var>v</var>) é a
+      <strong>circulação de <var>ω</var></strong> em torno do paralelogramo
+      infinitesimal gerado por <var>u</var> e <var>v</var>, por unidade de área
+      — o teorema de Stokes em forma de germe.
+    </p>
+    <p>
+      E daí sai o fato central: se <var>ω</var> = d<var>f</var>, então
+      d<var>ω</var> = 0, porque ∂<sub>i</sub>∂<sub>j</sub><var>f</var> =
+      ∂<sub>j</sub>∂<sub>i</sub><var>f</var> — derivadas parciais mistas
+      comutam. Toda forma exata é fechada, e isso é
+      <strong>d² = 0</strong>.
+    </p>
+    <p>
+      Escreva <var>F</var> = d<var>A</var> e você ganhou d<var>F</var> = 0 sem
+      fazer conta nenhuma: são a lei de Faraday e ∇·<strong>B</strong> = 0, as
+      duas equações homogêneas de Maxwell, que deixam de ser leis empíricas e
+      passam a ser identidades. A identidade de Bianchi é o mesmo fenômeno um
+      andar acima.
+    </p>
+
+    <div class="lab">
+      <span class="rotulo">No ÁLETRA</span>
+      <p>
+        <a href="./?exemplo=euclidiano&amp;modo=derivada">Plano
+        euclidiano, leitura dω(u, v)</a> — <span class="num chave">−3,86</span>.
+        Aqui <var>ω</var> é digitado como campo, não escolhido em slider.
+      </p>
+      <ol class="passos">
+        <li>
+          O padrão é <span class="ui">ω = (−y, x)</span>. À mão:
+          d<var>ω</var> = ∂<sub>x</sub>(<var>x</var>) −
+          ∂<sub>y</sub>(−<var>y</var>) = 1 + 1 = 2, diferente de zero — e as
+          células aparecem na tela.
+        </li>
+        <li>
+          Marque <span class="ui">usar ω = df</span>, com
+          <span class="ui">f = x*y</span>. As células
+          <strong>colapsam</strong>: o número vai a
+          <span class="num chave">0,00</span>.
+        </li>
+        <li>
+          Troque <var>f</var> por qualquer outra coisa —
+          <span class="ui">x^2 - y^2</span>, <span class="ui">sin(x)*y^3</span>,
+          <span class="ui">exp(x)*cos(y)</span>. Sempre 0,00. Não é sorte da
+          função escolhida: é Clairaut.
+        </li>
+      </ol>
+      <p class="nota">
+        Vale insistir num ponto que costuma passar batido: o inverso é falso
+        fora de um domínio contrátil. Formas fechadas que não são exatas medem
+        topologia, e é isso que a cohomologia de De Rham conta — mas para ver
+        isso seria preciso um laço que não encolhe a um ponto, e o retângulo
+        aqui não tem nenhum.
+      </p>
+    </div>
+  </section>
+
+  <hr class="pilha" />
+
+  <section>
+    <span class="indice">Atividade 5</span>
+    <h2>Fluxos que não comutam</h2>
+
+    <div class="eq">
+      [<var>X</var>, <var>Y</var>]<sup>i</sup> =
+      <var>X</var><sup>j</sup>∂<sub>j</sub><var>Y</var><sup>i</sup> −
+      <var>Y</var><sup>j</sup>∂<sub>j</sub><var>X</var><sup>i</sup>
+      <span class="nome">o colchete de Lie de dois campos vetoriais</span>
+    </div>
+
+    <p>
+      Ande um tempo <var>t</var> ao longo de <var>X</var>, depois um tempo
+      <var>t</var> ao longo de <var>Y</var>. Agora faça na ordem contrária. Os
+      dois pontos de chegada não coincidem, e o vão entre eles é, em ordem
+      dominante, <var>t</var>²[<var>X</var>, <var>Y</var>].
+    </p>
+    <p>
+      O colchete mede exatamente isso: o quanto dois fluxos deixam de comutar.
+      E, como d, ele não precisa de métrica nem de conexão — é estrutura
+      diferenciável pura. Três consequências que aparecem direto no curso:
+    </p>
+    <ul class="simples">
+      <li>
+        <strong>Bases coordenadas comutam</strong>, [∂<sub>μ</sub>,
+        ∂<sub>ν</sub>] = 0. É o que <em>define</em> uma base coordenada. Uma
+        tétrade não comuta, e a falha são os coeficientes de estrutura.
+      </li>
+      <li>
+        <strong>Torção nula</strong> significa ∇<sub><var>X</var></sub><var>Y</var>
+        − ∇<sub><var>Y</var></sub><var>X</var> = [<var>X</var>, <var>Y</var>].
+        Metade da definição de Levi-Civita é uma frase sobre o colchete.
+      </li>
+      <li>
+        <strong>Vetores de Killing fecham</strong> sob o colchete — é a álgebra
+        de Lie do grupo de isometrias, e é por isso que simetrias de uma métrica
+        formam um grupo.
+      </li>
+    </ul>
+
+    <div class="lab">
+      <span class="rotulo">No ÁLETRA</span>
+      <p>
+        <a href="./?exemplo=euclidiano&amp;modo=colchete">Plano
+        euclidiano, leitura [X, Y]</a> — |vão| =
+        <span class="num chave">1,44</span>. O padrão é
+        <span class="ui">X = (1, 0)</span> e <span class="ui">Y = (0, x)</span>.
+      </p>
+      <ol class="passos">
+        <li>
+          Veja o quadrilátero: dois caminhos saem do mesmo ponto e chegam em
+          pontos diferentes. O trecho grosso em laranja é o vão.
+        </li>
+        <li>
+          A glosa mostra <span class="ui">t²·|[X, Y]|</span> ao lado do vão
+          medido. Elas batem — o que você vê é o colchete, e não erro de
+          integração acumulado.
+        </li>
+        <li>
+          Ponha <span class="ui">Y = (0, 1)</span>: dois campos constantes. O
+          quadrilátero <strong>fecha</strong> e o vão vai a
+          <span class="num chave">0,00</span>.
+        </li>
+        <li>
+          <strong>Verifique a potência.</strong> Volte a
+          <span class="ui">Y = (0, x)</span> e mexa em
+          <span class="ui">passo t</span>: em <var>t</var> = 0,6 o vão é
+          <span class="num">0,36</span>; em <var>t</var> = 1,2 é
+          <span class="num">1,44</span>. Dobrar <var>t</var> quadruplica o vão,
+          que é o <var>t</var>² da fórmula, medido.
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <hr class="pilha" />
+
+  <section>
+    <span class="indice">Atividade 6</span>
+    <h2>Curvatura não é o quanto entorta no espaço</h2>
+
+    <div class="eq">
+      Δ<var>θ</var> = ∬<sub>S</sub> <var>K</var> d<var>A</var>
+      <span class="nome">holonomia de um laço fechado (Gauss–Bonnet)</span>
+    </div>
+
+    <p>
+      Transporte paralelo é mover um vetor mantendo-o "o mais paralelo
+      possível": ∇<sub><var>u</var></sub><var>V</var> = 0. Numa superfície
+      plana o resultado não depende do caminho. Numa superfície curva, depende —
+      e dar uma volta fechada devolve o vetor <strong>rodado</strong>.
+    </p>
+    <p>
+      O ângulo dessa rotação é a integral da curvatura na região cercada. Em
+      Relatividade Geral isso é o tensor de Riemann:
+      [∇<sub>μ</sub>, ∇<sub>ν</sub>]<var>V</var><sup>α</sup> =
+      <var>R</var><sup>α</sup><sub>βμν</sub><var>V</var><sup>β</sup>. Riemann
+      <em>é</em> a falha das derivadas covariantes em comutar, e a holonomia é
+      essa falha integrada.
+    </p>
+    <p>
+      Guarde a frase, porque a atividade existe para desmentir a intuição
+      errada: curvatura não é o quanto a superfície entorta dentro do espaço. É
+      se o transporte lembra o caminho.
+    </p>
+
+    <div class="lab">
+      <span class="rotulo">No ÁLETRA</span>
+      <p>
+        O numeral mostra o <strong>ângulo</strong> e a glosa mostra a
+        <strong>área cercada</strong>. Percorra a tabela na ordem — ela é o
+        argumento inteiro.
+      </p>
+      <div class="rolagem">
+        <table>
+          <caption>o ângulo contra a área, em cinco superfícies</caption>
+          <thead>
+            <tr><th>superfície</th><th>ângulo</th><th>área</th><th><var>K</var></th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href="./?exemplo=esfera&amp;modo=holonomia">esfera</a></td>
+              <td class="num">0,77</td>
+              <td class="num">0,77</td>
+              <td>+1: o ângulo <strong>é</strong> a área</td>
+            </tr>
+            <tr>
+              <td><a href="./?exemplo=cilindro&amp;modo=holonomia">cilindro</a></td>
+              <td class="num chave">0,00</td>
+              <td class="num">1,81</td>
+              <td>0: cerca área e não roda nada</td>
+            </tr>
+            <tr>
+              <td><a href="./?exemplo=cone&amp;modo=holonomia">cone</a></td>
+              <td class="num chave">−0,00</td>
+              <td class="num">1,20</td>
+              <td>0, e ainda assim não é o plano</td>
+            </tr>
+            <tr>
+              <td><a href="./?exemplo=hiperbolico&amp;modo=holonomia">hiperbólico</a></td>
+              <td class="num chave">−0,61</td>
+              <td class="num">0,61</td>
+              <td>−1: roda para o outro lado</td>
+            </tr>
+            <tr>
+              <td><a href="./?exemplo=toro&amp;modo=holonomia">toro</a></td>
+              <td class="num">0,19</td>
+              <td class="num">1,21</td>
+              <td>varia e se cancela dentro do laço</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ol class="passos">
+        <li>
+          Na esfera, os dois números são o mesmo. Com <var>K</var> = 1 a
+          integral da curvatura é a área, e Gauss–Bonnet acontece na tela.
+        </li>
+        <li>
+          <strong>O cilindro é o argumento.</strong> Ele visivelmente entorta no
+          espaço, o laço cerca 1,81 de área, e o vetor volta
+          <em>idêntico</em>. Enrole uma folha de papel: nada esticou, nada
+          rasgou, e a geometria não mudou. Curvatura extrínseca e intrínseca não
+          são a mesma coisa, e o número diz qual é qual.
+        </li>
+        <li>
+          O cone tem <var>K</var> = 0 em toda parte e mesmo assim não é o plano
+          — o déficit angular está concentrado no vértice, onde a carta acaba.
+          Curvatura zero em todo ponto não implica ser o plano.
+        </li>
+        <li>
+          No hiperbólico o sinal vira. É por isso que "o ângulo mede a
+          curvatura" tem informação além do módulo.
+        </li>
+        <li>
+          Use o slider <span class="ui">posição</span> para caminhar com o vetor
+          ao longo do laço e ver a rotação se acumular lado a lado. Desmarque
+          <span class="ui">andar sozinho</span> para controlar você mesmo.
+        </li>
+        <li>
+          No toro, arraste o ponto pelo tubo. Por fora <var>K</var> &gt; 0, por
+          dentro <var>K</var> &lt; 0, e o ângulo troca de sinal na sua frente.
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <hr class="pilha" />
+
+  <section>
+    <span class="indice">Atividade 7</span>
+    <h2>Maré é a única coisa que se sente</h2>
+
+    <div class="eq">
+      d²<var>x</var><sup>α</sup>/d<var>λ</var>² +
+      Γ<sup>α</sup><sub>βγ</sub>
+      (d<var>x</var><sup>β</sup>/d<var>λ</var>)
+      (d<var>x</var><sup>γ</sup>/d<var>λ</var>) = 0
+      <span class="nome">a equação da geodésica</span>
+    </div>
+    <div class="eq">
+      D²<var>ξ</var><sup>α</sup>/d<var>λ</var>² =
+      −<var>R</var><sup>α</sup><sub>βγδ</sub>
+      <var>u</var><sup>β</sup><var>ξ</var><sup>γ</sup><var>u</var><sup>δ</sup>
+      <span class="nome">o desvio geodésico</span>
+    </div>
+
+    <p>
+      Uma geodésica é a curva cuja tangente é transportada paralelamente ao
+      longo dela mesma — "a mais reta possível". O Γ não é tensor: ele existe
+      para tornar a derivada covariante, e é por isso que numa carta (θ, φ) um
+      grande círculo aparece como curva enquanto na esfera ele é reto.
+    </p>
+    <p>
+      A segunda equação é onde a Relatividade Geral vira física. Pelo princípio
+      de equivalência, um observador em queda livre não sente campo
+      gravitacional nenhum — localmente ele está em Minkowski. Mas
+      <strong>duas</strong> partículas em queda livre se aproximam ou se afastam
+      uma da outra, e essa deriva relativa não se apaga com escolha de
+      referencial. É maré, e a fonte dela é <var>R</var>.
+    </p>
+    <p>
+      Curvatura é a única coisa gravitacional que se pode medir sem olhar para
+      fora.
+    </p>
+
+    <div class="lab">
+      <span class="rotulo">No ÁLETRA</span>
+      <p>
+        A leitura traça a geodésica e, com <span class="ui">traçar a
+        vizinha</span> marcado, uma segunda que parte paralela. A glosa mostra a
+        separação no início e no fim.
+      </p>
+      <div class="rolagem">
+        <table>
+          <caption>duas geodésicas vizinhas, quatro geometrias</caption>
+          <thead>
+            <tr><th>superfície</th><th>separação</th><th>o que <var>R</var> fez</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href="./?exemplo=esfera&amp;modo=geodesica">esfera</a></td>
+              <td class="num">0,12 → 0,08</td>
+              <td><var>K</var> &gt; 0: convergem</td>
+            </tr>
+            <tr>
+              <td><a href="./?exemplo=cilindro&amp;modo=geodesica">cilindro</a></td>
+              <td class="num chave">0,16 → 0,16</td>
+              <td><var>K</var> = 0: seguem paralelas</td>
+            </tr>
+            <tr>
+              <td><a href="./?exemplo=hiperbolico&amp;modo=geodesica">hiperbólico</a></td>
+              <td class="num">0,12 → 0,74</td>
+              <td><var>K</var> &lt; 0: fogem uma da outra</td>
+            </tr>
+            <tr>
+              <td><a href="./?exemplo=schwarzschild&amp;modo=geodesica">Schwarzschild</a></td>
+              <td class="num chave">1,47 → 2,50</td>
+              <td>estiramento radial de maré</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ol class="passos">
+        <li>
+          O cilindro é o quinto postulado de Euclides valendo numa superfície
+          que parece curva: duas paralelas continuam paralelas para sempre.
+        </li>
+        <li>
+          Em Schwarzschild a separação cresce ao longo da queda. É o termo que a
+          divulgação chama de espaguetificação, e ele está aí como número.
+        </li>
+        <li>
+          Mexa em <span class="ui">alcance</span> para prolongar a geodésica e
+          ver a separação evoluir.
+        </li>
+        <li>
+          Na esfera, gire a superfície com o mouse e confira que a curva está
+          num plano que passa pelo centro. É a definição de grande círculo — e
+          é assim que se testa que a integração está certa, e não só bonita.
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <hr class="pilha" />
+
+  <section>
+    <span class="indice">Atividade 8</span>
+    <h2>O horizonte não é o fim de nada</h2>
+
+    <div class="eq">
+      d<var>s</var>² =
+      d<var>r</var>²/(1 − 2<var>M</var>/<var>r</var>) +
+      <var>r</var>² d<var>φ</var>²
+      <span class="nome">Schwarzschild, fatia equatorial, <var>t</var> constante</span>
+    </div>
+    <div class="eq">
+      <var>K</var> = −<var>M</var>/<var>r</var>³
+      <span class="nome">a curvatura gaussiana dessa fatia</span>
+    </div>
+
+    <p>
+      Leia a métrica devagar, componente por componente.
+      <var>g</var><sub>φφ</sub> = <var>r</var>² diz que um círculo de
+      coordenada <var>r</var> tem comprimento 2π<var>r</var>, exatamente como no
+      plano. Ou seja: <var>r</var> não é uma distância medida até o centro. É a
+      coordenada <em>definida</em> pelo comprimento do círculo.
+    </p>
+    <p>
+      Toda a deformação está na direção radial. A distância própria entre dois
+      círculos é ∫ d<var>r</var>/√(1 − 2<var>M</var>/<var>r</var>), maior que
+      Δ<var>r</var>, e a razão entre as duas cresce sem limite ao se aproximar
+      de 2<var>M</var>.
+    </p>
+    <p>
+      Agora as duas singularidades, que é onde quase todo mundo tropeça uma vez.
+      Em <var>r</var> = 2<var>M</var> o <var>g</var><sub>rr</sub> diverge — mas
+      <var>K</var> = −<var>M</var>/<var>r</var>³ vale −1/8<var>M</var>² ali, um
+      número perfeitamente finito. <strong>Quem acaba é a carta, não a
+      geometria.</strong> Em <var>r</var> → 0 é <var>K</var> que diverge, e
+      contra isso não há mudança de coordenadas que ajude.
+    </p>
+
+    <div class="lab">
+      <span class="rotulo">No ÁLETRA</span>
+      <p>
+        <a href="./?exemplo=schwarzschild&amp;modo=uma">Abrir
+        Schwarzschild</a>. O funil à direita é o paraboloide de Flamm,
+        <var>z</var>(<var>r</var>) =
+        2√(2<var>M</var>(<var>r</var>−2<var>M</var>)) — não é ilustração de
+        buraco negro, é a métrica dos campos, mergulhada isometricamente.
+      </p>
+      <ol class="passos">
+        <li>
+          Os círculos desenhados no funil são as superfícies de <var>r</var>
+          constante — as "esferas concêntricas" da fatia. Repare como eles
+          <strong>adensam</strong> na direção da garganta: os raios estão
+          igualmente espaçados em <var>r</var>, e as distâncias entre eles não
+          estão.
+        </li>
+        <li>
+          Na carta, a faixa hachurada à esquerda é <var>r</var> &lt;
+          2<var>M</var>. Arraste o ponto naquela direção: ele para, e a
+          mensagem distingue as duas espécies de singularidade.
+        </li>
+        <li>
+          Troque para
+          <a href="./?exemplo=schwarzschild&amp;modo=geodesica">geodésica</a>
+          e aponte <var>v</var> para dentro (<var>v</var><sup>r</sup> negativo).
+          A curva para, e o aviso diz que quem acabou foi a carta.
+        </li>
+        <li>
+          O funil também acaba na garganta, e por um motivo mais forte que
+          desenho: dentro do horizonte a fatia estática não é uma superfície do
+          espaço, e nenhum mergulho a alcança. A carta continua desenhando lá
+          porque lá aquilo ainda é geometria.
+        </li>
+        <li>
+          <strong>Teste a honestidade da ferramenta.</strong> Edite
+          <span class="ui">g<sub>rr</sub></span> para qualquer outra coisa. O
+          funil desaparece com um aviso, porque a superfície desenhada deixaria
+          de ser a métrica escrita. Os dois painéis nunca mostram geometrias
+          diferentes em silêncio.
+        </li>
+      </ol>
+      <p class="nota">
+        Cuidado com a leitura clássica errada do funil: o que diverge na
+        garganta é a <strong>inclinação</strong> da parede, não o comprimento
+        dela. A distância própria de <var>r</var> = 3<var>M</var> até o
+        horizonte é finita. Você chega lá — o que não dá é para ficar parado.
+      </p>
+    </div>
+  </section>
+
+  <hr class="pilha" />
+
+  <section class="fecho">
+    <h2>Levar para a aula</h2>
+    <ul class="simples">
+      <li>
+        <strong>Uma cena inteira cabe num link.</strong> O botão
+        <span class="ui">copiar link</span> guarda métrica digitada, ponto,
+        vetor, ω e modo no próprio endereço. Nada vai para servidor nenhum:
+        mandar um exercício é mandar uma URL.
+      </li>
+      <li>
+        <strong>Para projetar</strong>, acrescente <code>?limpo=1</code> ao
+        endereço e todo o cromo desaparece — fica a superfície, o vetor, a pilha
+        e o número.
+        <a href="./?exemplo=schwarzschild&amp;limpo=1">Ver
+        assim</a>.
+      </li>
+      <li>
+        <strong>A métrica é digitada.</strong> Nada impede de escrever a sua
+        própria nos campos <var>g</var><sub>ij</sub> e explorar. Sem mergulho
+        conhecido a carta continua valendo sozinha, que é onde mora a geometria
+        de qualquer jeito.
+      </li>
+    </ul>
+    <p class="nota">
+      Duas das oito superfícies não têm painel de ℝ³. O plano euclidiano por
+      falta de graça. O plano hiperbólico por teorema: Hilbert provou que não
+      existe mergulho isométrico completo de H² em ℝ³. Não é recurso faltando —
+      é o próprio conteúdo avisando que a carta às vezes é tudo o que se pode
+      ter, e que ela basta.
+    </p>
+  </section>
+
+</div>
+
+  </body>
+</html>

@@ -277,8 +277,31 @@ body.geodesica .bloco-vetor .morfose {
   border-color: var(--brand);
 }
 
+/* Discreto de propósito: quem já sabe usar não precisa dele ocupando peso
+   visual, e quem não sabe procura exatamente ali, ao lado de "copiar link". */
+#tutorial {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  padding-bottom: 1px;
+  white-space: nowrap;
+}
+
+#tutorial:hover {
+  color: var(--ink);
+  border-bottom-color: var(--brand);
+}
+
+#tutorial:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
 body.limpo #modo,
-body.limpo #copiar {
+body.limpo #copiar,
+body.limpo #tutorial {
   display: none;
 }
 

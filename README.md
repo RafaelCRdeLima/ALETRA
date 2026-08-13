@@ -45,6 +45,20 @@ toda a geometria é calculada na aba aberta, na máquina de quem abriu.
   uma mensagem que distingue singularidade de coordenada (o horizonte em r=2M,
   os polos da esfera) de singularidade de curvatura real (r=0).
 
+## Tutorial
+
+O link **tutorial**, no cabeçalho, abre um roteiro de oito atividades pensado
+para uma disciplina de Relatividade Geral: cada uma pega uma equação — de
+⟨ω,v⟩ = ω_i v^i até K = −M/r³ —, abre termo a termo, e termina numa coisa que
+se observa na tela, com o número que deve aparecer.
+
+Ele mora no próprio repositório ([tutorial.html](tutorial.html)) e é publicado
+junto, no mesmo endereço: um aluno que recebeu só a URL do ÁLETRA chega nele
+sem conta, sem login e sem depender de nenhum serviço de terceiros continuar
+existindo.
+
+[Ver o tutorial →](https://rafaelcrdelima.github.io/ALETRA/tutorial.html)
+
 ## Compartilhar uma cena
 
 O botão **copiar link** guarda a cena inteira no endereço — métrica digitada, ponto, vetor, ω e a
